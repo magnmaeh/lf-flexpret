@@ -4,7 +4,7 @@ set -e
 # List of benchmarks
 benchmarks=("scatter-gather")
 programs=("ScatterGather")
-workers=(2 4 6 8)
+workers=(1 3 5 7)
 iterations=1000
 
 compile() {
@@ -34,7 +34,7 @@ clean_src_gen() {
 }
 
 compile_fp() {
-  local threads=$1
+  ((threads= $1 + 1))
   echo "#### Compiling flexpret with $threads threads"
   pushd flexpret
   make clean
@@ -43,12 +43,12 @@ compile_fp() {
 }
 
 
-# compile_lfc
+compile_lfc
 clean_src_gen
 
 # Main loop
 for worker in "${workers[@]}"; do
-  # compile_fp "$worker"
+  compile_fp "$worker"
   for ((i = 0; i < ${#benchmarks[@]}; i++)); do
     benchmark="${benchmarks[i]}"
     program="${programs[i]}"
