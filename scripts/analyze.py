@@ -5,6 +5,28 @@ import numpy as np
 import matplotlib.patches as mpatches
 import matplotlib.ticker as ticker
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("model", help="The model: scatter-gather/interrupt/interrupt-nlf/pipeline/all")
+parser.add_argument("-i", "--iterations", type=int)
+parser.add_argument("-w", "--workers", type=int, nargs="+")
+args = parser.parse_args()
+
+if not args.iterations:
+    args.iterations=1000
+
+if not args.workers:
+    args.workers = [1,3,5,7]
+
+
+print("### Analyze parameters ###")
+print(f"model={args.model}")
+print(f"iterations={args.iterations}")
+print(f"workers={args.workers}")
+
+
+FONTSIZE = 34
+
 
 class ItStruct:
     base: int
@@ -141,6 +163,7 @@ def plot_diff_from_base(model, diffs: List[int], niterations: int):
         counts = count_in_partitions(diff_flat, npoints)
         counts_accumulated += counts
 
+        print(counts)
         assert(sum(counts) == 1 * niterations)
 
         lower_bound = int(min(diff_flat) / 1000)
@@ -305,20 +328,37 @@ def get_diffs(model, nworkers, niterations):
     itstructs = itstrings_to_itstruct(itstrs, idx_offset)
     return produce_diff_from_base(itstructs)
 
-NITERATIONS = 1000
-def get_alldiffs(model, workers):
-    return [get_diffs(model, n, NITERATIONS) for n in workers]
+def get_alldiffs(model, workers, iterations):
+    return [get_diffs(model, n, iterations) for n in workers]
 
-pipeline_alldiffs = get_alldiffs('pipeline', [1, 3, 5, 7])
-interrupt_alldiffs = get_alldiffs('interrupt', [3, 5, 7])
-scatter_gather_alldiffs = get_alldiffs('scatter-gather', [1, 3, 5, 7])
-interrupt_nlf_alldiffs = get_alldiffs('interrupt-nlf', [1, 3, 5, 7])
+pipeline_alldiffs = None
+interrupt_alldiffs = None
+scatter_gather_alldiffs = None
+interrupt_nlf_alldiffs = None
 
-FONTSIZE = 34
+if args.model == "scatter-gather" or args.model == "all":
+    scatter_gather_alldiffs = get_alldiffs('scatter-gather', args.workers, args.iterations)
+    
+if args.model == "interrupt" or args.model == "all":
+    interrupt_alldiffs = get_alldiffs('interrupts', args.workers, args.iterations)
 
-#plot_diff_from_base('pipeline', pipeline_alldiffs, NITERATIONS)
-#plot_diff_from_base('interrupt', [[]] + interrupt_alldiffs, NITERATIONS)
-#plot_diff_from_base('scatter-gather', scatter_gather_alldiffs, NITERATIONS)
-#plot_diff_from_base('interrupt-nlf', interrupt_nlf_alldiffs, NITERATIONS)
+if args.model == "interrupt-nlf" or args.model == "all":
+    interrupt_nlf_alldiffs = get_alldiffs('interrupt-nlf', args.workers, args.iterations)
 
-plot_increase([scatter_gather_alldiffs, pipeline_alldiffs, [[]] + interrupt_alldiffs, interrupt_nlf_alldiffs])
+if args.model == "pipeline" or args.model == "all":
+    pipeline_alldiffs = get_alldiffs('pipeline', args.workers, args.iterations)
+
+if pipeline_alldiffs:
+    plot_diff_from_base('pipeline', pipeline_alldiffs, args.iterations)
+
+if interrupt_alldiffs:
+    plot_diff_from_base('interrupt', [[]] + interrupt_alldiffs, args.iterations)
+
+if scatter_gather_alldiffs:
+    plot_diff_from_base('scatter-gather', scatter_gather_alldiffs, args.iterations)
+
+if interrupt_nlf_alldiffs:
+    plot_diff_from_base('interrupt-nlf', interrupt_nlf_alldiffs, args.iterations)
+
+if args.model == "all":
+    plot_increase([scatter_gather_alldiffs, pipeline_alldiffs, [[]] + interrupt_alldiffs, interrupt_nlf_alldiffs])
