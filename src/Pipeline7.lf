@@ -1,0 +1,164 @@
+target C {
+    threading: true,
+    logging: error,
+    build: "../scripts/build_flexpret_unix.sh"
+}
+
+preamble {=
+    #include <platform.h>
+
+    #define MAX_ITERATIONS (10)
+    #define NSTAGES (7)
+    #define TIMESTAMP_SIZE ((1 + NSTAGES) * MAX_ITERATIONS)
+    
+    #define IDX_BASE(i)         ((1 + NSTAGES) * i + (    0))
+    #define IDX_DATA(i, j)      ((1 + NSTAGES) * i + (j + 1))
+    
+    static float compute_part_0(float f) {
+        lf_sleep(MSEC(10));
+        return f + 1;
+    }
+    
+    static float compute_part_1(float f) {
+        lf_sleep(MSEC(10));
+        return f + 1;
+    }
+    
+    static float compute_part_2(float f) {
+        lf_sleep(MSEC(10));
+        return f + 1;
+    }
+    
+    static float compute_part_3(float f) {
+        lf_sleep(MSEC(10));
+        return f + 1;
+    }
+    
+    static float compute_part_4(float f) {
+        lf_sleep(MSEC(10));
+        return f + 1;
+    }
+    
+    static float compute_part_5(float f) {
+        lf_sleep(MSEC(10));
+        return f + 1;
+    }
+    
+    static float compute_part_6(float f) {
+        lf_sleep(MSEC(10));
+        return f + 1;
+    }
+    
+
+    static void print_timings(uint32_t iter, instant_t *timestamps)
+    {
+        char printout[256];
+        int len = sprintf(printout, "Iteration %i: Base: %lli, ", iter, timestamps[(1 + NSTAGES) * iter]);
+        for (int j = 0; j < NSTAGES; j++) {
+            if (timestamps[(1 + NSTAGES) * iter + (j + 1)] != 0) {
+                len += sprintf(printout + len - 1, "{%i}: %lli, ", j, timestamps[(1 + NSTAGES) * iter + (j + 1)]) - 1;
+            } else {
+                len += sprintf(printout + len - 1, "{%i}: NA, ", j) - 1;
+            }
+        }
+        
+        printf("%s\n", printout);
+    }
+=}
+
+main reactor(start: time = 100 msec) {
+    state processed: float
+    state niterations: int = 0
+    state timestamps: instant_t[]
+
+    timer t(0, 10 msec)
+
+    reaction(startup) -> stage0.timestamps, stage1.timestamps, stage2.timestamps, stage3.timestamps, stage4.timestamps, stage5.timestamps, stage6.timestamps {=
+        fp_assert(NSTAGES == NUMBER_OF_WORKERS, "Number of stages not equal to number of workers!\n");
+        self->timestamps = malloc(TIMESTAMP_SIZE * sizeof(instant_t));
+
+        lf_set(stage0.timestamps, self->timestamps);
+        lf_set(stage1.timestamps, self->timestamps);
+        lf_set(stage2.timestamps, self->timestamps);
+        lf_set(stage3.timestamps, self->timestamps);
+        lf_set(stage4.timestamps, self->timestamps);
+        lf_set(stage5.timestamps, self->timestamps);
+        lf_set(stage6.timestamps, self->timestamps);
+    =}
+
+    reaction(t) -> stage0.x, stage0.niterations, stage1.niterations, stage2.niterations, stage3.niterations, stage4.niterations, stage5.niterations, stage6.niterations {=
+        self->timestamps[IDX_BASE(self->niterations)] = lf_time_physical_elapsed();
+        lf_set(stage0.x, 10.0);
+
+        lf_set(stage0.niterations, self->niterations);
+        lf_set(stage1.niterations, self->niterations);
+        lf_set(stage2.niterations, self->niterations);
+        lf_set(stage3.niterations, self->niterations);
+        lf_set(stage4.niterations, self->niterations);
+        lf_set(stage5.niterations, self->niterations);
+        lf_set(stage6.niterations, self->niterations);
+    =}
+
+    stage0 = new PipelineStage(stage = 0);
+    stage1 = new PipelineStage(stage = 1);
+    stage2 = new PipelineStage(stage = 2);
+    stage3 = new PipelineStage(stage = 3);
+    stage4 = new PipelineStage(stage = 4);
+    stage5 = new PipelineStage(stage = 5);
+    stage6 = new PipelineStage(stage = 6);
+
+    stage0.y -> stage1.x after 10 msec
+    stage1.y -> stage2.x after 10 msec
+    stage2.y -> stage3.x after 10 msec
+    stage3.y -> stage4.x after 10 msec
+    stage4.y -> stage5.x after 10 msec
+    stage5.y -> stage6.x after 10 msec
+
+    reaction(stage6.y) {=
+        self->processed = stage6.y->value;
+        if (++self->niterations == MAX_ITERATIONS) {
+            printf("request stop\n");
+            lf_request_stop();
+        }
+    =}
+
+    reaction(shutdown) {=
+        // Remove the parts of the pipeline that were empty in the beginning
+        for (int j = 0; j < NSTAGES; j++) {
+            for (int k = 1; k < (NSTAGES - j); k++) {
+                self->timestamps[(1 + NSTAGES) * j + (j + k + 1)] = 0;
+            }
+        }
+
+        for (int i = 0; i < self->niterations; i++) {
+            print_timings(i, self->timestamps);
+        }
+
+        free(self->timestamps);
+    =}
+}
+
+reactor PipelineStage(stage: int = 0) {
+    input x: float
+    input niterations: int
+    input timestamps: instant_t[]
+    output y: float
+    reaction(x, niterations, timestamps) -> y {=
+        instant_t time_elapsed = lf_time_physical_elapsed();
+        timestamps->value[IDX_DATA(niterations->value, self->stage)] = time_elapsed;
+
+        float result = 0;
+        switch (self->stage) {
+            case 0: result = compute_part_0(x->value); break;
+            case 1: result = compute_part_1(x->value); break;
+            case 2: result = compute_part_2(x->value); break;
+            case 3: result = compute_part_3(x->value); break;
+            case 4: result = compute_part_4(x->value); break;
+            case 5: result = compute_part_5(x->value); break;
+            case 6: result = compute_part_6(x->value); break;
+
+            default: break;
+        }
+        lf_set(y, result);
+    =}
+}
