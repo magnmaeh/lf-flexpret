@@ -8,7 +8,7 @@ import sys
 if len(sys.argv) == 2:
     NWORKERS = int(sys.argv[1])
 else:
-    print("Provide number of workers!")
+    print("Provide number of workers and iterations!")
     exit(1)
 
 def gen_compute_part_x_cfnc(x: int):
@@ -22,8 +22,9 @@ def gen_compute_part_x_cfnc(x: int):
 def gen_preamble():
     preamble = """preamble {=
     #include <platform.h>
+    #include "config.h"
 
-    #define MAX_ITERATIONS (1000)
+    #define MAX_ITERATIONS (CONFIG_ITERATIONS)
     #define NSTAGES (""" + str(NWORKERS) + """)
     #define TIMESTAMP_SIZE ((1 + NSTAGES) * MAX_ITERATIONS)
     

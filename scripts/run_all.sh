@@ -6,6 +6,6 @@ source scripts/run_lib.sh
 
 set -e
 workers=(1 3 5 7)
-iterations=10 # FIXME: Todo can we use this variable to control 
+iterations=20
 
 run_all "$iterations" "${workers[@]}"

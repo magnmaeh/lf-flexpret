@@ -36,10 +36,11 @@ APP_INCS := -I$(LF_PROJECT_ROOT)/flexpret/programs/lib/include \
     -I$(LF_SOURCE_GEN_DIRECTORY)/include/core/utils \
     -I$(LF_SOURCE_GEN_DIRECTORY)/include/core/platform \
     -I$(LF_SOURCE_GEN_DIRECTORY)/include/core/threaded \
-	-I$(LF_SOURCE_GEN_DIRECTORY)/include/core/modal_models
+	-I$(LF_SOURCE_GEN_DIRECTORY)/include/core/modal_models \
+	-I$(LF_PROJECT_ROOT)/src
 
 
-APP_DEFS  := -DINITIAL_EVENT_QUEUE_SIZE=10 \
+APP_DEFS := -DINITIAL_EVENT_QUEUE_SIZE=10 \
 	-DINITIAL_REACT_QUEUE_SIZE=10 \
 	-DNO_TTY \
 	-DPLATFORM_FLEXPRET \

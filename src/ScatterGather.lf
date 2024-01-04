@@ -7,8 +7,9 @@ target C {
 
 preamble {=
     #include <platform.h>
+    #include "config.h"
 
-    #define MAX_ITERATIONS (10)
+    #define MAX_ITERATIONS (CONFIG_ITERATIONS)
     #define NSCATTERS (NUM_THREADS - 1)
     #define TIMESTAMP_SIZE ((1 + NSCATTERS) * MAX_ITERATIONS)
 

@@ -7,8 +7,9 @@ target C {
 preamble {=
     #include "platform.h"
     #include "flexpret.h"
+    #include "config.h"
 
-    #define MAX_INTERRUPTS (1000)
+    #define MAX_INTERRUPTS (CONFIG_ITERATIONS)
     #define TIMESTAMP_SIZE (2 * MAX_INTERRUPTS)
 =}
 

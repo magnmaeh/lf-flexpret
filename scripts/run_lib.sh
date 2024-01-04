@@ -5,17 +5,21 @@
 benchmarks=("scatter-gather")
 programs=("ScatterGather")
 
-# compile $program
+# compile $program $iterations
 compile() {
-    # Add compilation commands for your benchmarks here
-    echo "Compiling $1..."
-    lingua-franca/bin/lfc "src/$1.lf" 
+  # Add compilation commands for your benchmarks here
+  echo "Compiling $1..."
+
+  # Generate configuration for benchmarks
+  echo "#define CONFIG_ITERATIONS ($2)" > src/config.h
+
+  lingua-franca/bin/lfc "src/$1.lf" 
 }
 
 # execute $benchmark $program $workers $iterations
 execute() {
-    echo "Executing $2..."
-    make -C "src-gen/$2" run > "results/$1/w${3}it$4.txt"
+  echo "Executing $2..."
+  make -C "src-gen/$2" run > "results/$1/w${3}it$4.txt"
 }
 
 # analyze $model $iterations
@@ -58,7 +62,7 @@ run_single() {
   echo "Benchmark: $benchmark, Program: $program"
       
   # Compile source files
-  compile "$program"
+  compile "$program" "$it"
 
   # Execute program
   execute "$benchmark" "$program" "$worker" "$iterations"
@@ -86,7 +90,7 @@ run_all() {
     echo "Benchmark: $benchmark, Program: $program"
 
     # Compile source files
-    compile "$program"
+    compile "$program" "$iterations"
 
     # Execute program
     execute "$benchmark" "$program" "$worker" "$iterations"
@@ -97,7 +101,7 @@ run_all() {
       program="${programs[i]}"
       echo "Benchmark: $benchmark, Program: $program"
       # Compile source files
-      compile "$program"
+      compile "$program" "$iterations"
 
       # Execute program
       execute "$benchmark" "$program" "$worker" "$iterations"

@@ -6,8 +6,9 @@ target C {
 
 preamble {=
     #include <platform.h>
+    #include "config.h"
 
-    #define MAX_ITERATIONS (10)
+    #define MAX_ITERATIONS (CONFIG_ITERATIONS)
     #define NSTAGES (7)
     #define TIMESTAMP_SIZE ((1 + NSTAGES) * MAX_ITERATIONS)
     
