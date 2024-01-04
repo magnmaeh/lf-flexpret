@@ -106,5 +106,5 @@ run_all() {
   done
 
   # Analyze results
-  python3 scripts/analyze.py all -i$iterations
+  python3 scripts/analyze.py scatter-gather pipeline -i$iterations
 }

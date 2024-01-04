@@ -1,15 +1,21 @@
 import matplotlib.pyplot as plt
-from typing import List
+from typing import List, Dict
 from collections import Counter
 import numpy as np
 import matplotlib.patches as mpatches
 import matplotlib.ticker as ticker
 
+
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("model", help="The model: scatter-gather/interrupt/interrupt-nlf/pipeline/all")
 parser.add_argument("-i", "--iterations", type=int)
 parser.add_argument("-w", "--workers", type=int, nargs="+")
+parser.add_argument("models",
+    help="A list of models, possible values are: scatter-gather/interrupt/interrupt-nlf/pipeline/all",
+    type=str,
+    nargs="*",
+    default="all"
+)
 args = parser.parse_args()
 
 if not args.iterations:
@@ -18,14 +24,20 @@ if not args.iterations:
 if not args.workers:
     args.workers = [1,3,5,7]
 
-
 print("### Analyze parameters ###")
-print(f"model={args.model}")
+print(f"models={args.models}")
 print(f"iterations={args.iterations}")
 print(f"workers={args.workers}")
 
 
-FONTSIZE = 34
+DEFAULT_FONTSIZE = 34
+ALL_MODELS_STRS = ['scatter-gather', 'interrupt', 'interrupt-nlf', 'pipeline']
+ALL_NWORKERS = [1, 3, 5, 7]
+
+def format_modelstr(modelstr: str) -> str:
+    return 'Scatter-Gather' if modelstr == 'scatter-gather' else modelstr.capitalize()
+
+
 
 
 class ItStruct:
@@ -102,11 +114,9 @@ def produce_diff_from_base(itstructs: List[ItStruct]) -> List[int]:
     result = list()
     for itstruct in itstructs:
         base = itstruct.base
-        itresult = list()
         for time in itstruct.stages:
             if time > 0:
-                itresult.append(time - base)
-        result.append(itresult)
+                result.append(time - base)
     return result
 
 def count_in_partitions(list, npoints) -> (List[int], List[int]):
@@ -238,89 +248,70 @@ def plot_diff_from_base(model, diffs: List[int], niterations: int):
         colors = colors[2:]
         workers = workers[1:]
         nplots -= 1
-    
-    if model == 'scatter-gather':
-        model = 'Scatter-Gather'
-    else:
-        model = model.capitalize()
 
     title = model + ' model for ' + str(workers) + '\nworkers over 1000 iterations'
-    plt.title(title, fontsize=FONTSIZE)
-    plt.xlabel('Time (us)', fontsize=FONTSIZE)
+    plt.title(title, fontsize=DEFAULT_FONTSIZE)
+    plt.xlabel('Time (us)', fontsize=DEFAULT_FONTSIZE)
 
     patches = [mpatches.Patch(color=palette[n], label=str(y) + ' workers') for (n, y) in zip(range(nplots), workers)]
-    plt.legend(handles=patches, fontsize=FONTSIZE)
+    plt.legend(handles=patches, fontsize=DEFAULT_FONTSIZE)
 
     plt.xticks([])
     #plt.xticks(np.linspace(0, 1, len(xtick_strs)), xtick_strs, fontsize=18)
-    plt.yticks(fontsize=FONTSIZE)
+    plt.yticks(fontsize=DEFAULT_FONTSIZE)
     plt.bar(np.linspace(0, 1, len(xtick_strs)), counts_accumulated, width=0.02, color=colors)    
     plt.show()
 
-def plot_increase(alldiffs):
-    means = list(list())
-    stddevs = list(list())
-    for alldiff in alldiffs:
-        lst = list()
-        lst2 = list()
-        for diff in alldiff:
-            diff = flatten(diff)
+def get_means_stddevs(data: [[[float]]]) -> (list, list):
+    means = dict()
+    stddevs = dict()
 
-            mean = sum(diff) / len(diff) if len(diff) > 0 else 0
-            lst.append(mean)
+    for model in data:
+        means[model] = dict()
+        stddevs[model] = dict()
+        for workers in data[model]:
+            workset = data[model][workers]
+            means[model][workers] = np.mean(workset)
+            stddevs[model][workers] = np.std(workset)
 
-            variance = sum([((x - mean) ** 2) for x in diff]) / len(diff) if len(diff) > 0 else 0
-            stddev = variance ** 0.5
-            print(mean, stddev)
+    return means, stddevs
 
-            lst2.append(stddev)
-        means.append(lst)
-        stddevs.append(lst2)
+def plot_models(data: Dict[str, list]):
+    for model in data:
+        nworkers = [*data[model].keys()]
+        points = [*data[model].values()]
+        plt.plot(nworkers, points, '-o', label=format_modelstr(model) + ' pattern', linewidth=3)
 
-    NWORKERS = [1, 3, 5, 7]
-    MODELS = ['Scatter-Gather', 'Pipeline', 'Interrupt-LF', 'Interrupt-BM']
-    for idx in range(len(means)):
-        nworkers = NWORKERS if idx != 2 else [3, 5, 7]
-        points = means[idx] if idx != 2 else means[idx][1:]
-        plt.plot(nworkers, points, '-o', label=MODELS[idx] + ' pattern', linewidth=3)
-
-    plt.xticks(NWORKERS, fontsize=FONTSIZE)
-    plt.xlabel('Number of workers', fontsize=FONTSIZE)
-
+def divide_yaxis_by_1000():
     def div_1000(x, *args):
         x = float(x)/1000
         return "{}".format(int(x)) 
 
     ax = plt.gca()
     ax.yaxis.set_major_formatter(ticker.FuncFormatter(div_1000))
-    plt.yticks(fontsize=FONTSIZE)
 
-    plt.ylabel('Timing overhead (us)', fontsize=FONTSIZE)
-    plt.title('Timing overhead vs. number of workers', fontsize=FONTSIZE)
+def configure_plot(workers, yaxis_str: str):
+    divide_yaxis_by_1000()
     
-    plt.legend(fontsize=FONTSIZE)
+    plt.xticks(workers, fontsize=DEFAULT_FONTSIZE)
+    plt.xlabel('Number of workers', fontsize=DEFAULT_FONTSIZE)
+    
+    plt.yticks(fontsize=DEFAULT_FONTSIZE)
+    plt.ylabel(yaxis_str + ' (us)', fontsize=DEFAULT_FONTSIZE)
+    
+    plt.title(yaxis_str + ' vs. number of workers', fontsize=DEFAULT_FONTSIZE)
+    plt.legend(fontsize=DEFAULT_FONTSIZE)
+
+def plot_means_stddevs(data: Dict[str, Dict[str, list]], workers):
+    means, stddevs = get_means_stddevs(data)
+
+    plot_models(means)
+    configure_plot(workers, 'Timing overhead')
     plt.show()
 
-    for idx in range(len(stddevs)):
-        nworkers = NWORKERS   if idx != 2 else [3, 5, 7]
-        points = stddevs[idx] if idx != 2 else stddevs[idx][1:]
-        print(points)
-        plt.plot(nworkers, points, '-o', label=MODELS[idx] + ' pattern', linewidth=3)
-
-    plt.xticks(NWORKERS, fontsize=FONTSIZE)
-    plt.xlabel('Number of workers', fontsize=FONTSIZE)
-    
-    ax = plt.gca()
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(div_1000))
-    plt.yticks(fontsize=FONTSIZE)
-    
-    plt.ylabel('Standard deviation (us)', fontsize=FONTSIZE)
-    plt.title('Standard deviation of timing overhead\nvs. number of workers', fontsize=FONTSIZE)
-    
-    plt.legend(fontsize=FONTSIZE)
-
+    plot_models(stddevs)
+    configure_plot(workers, 'Standard deviation')
     plt.show()
-
 
 def get_diffs(model, nworkers, niterations):
     path = 'results/' + model + '/w' + str(nworkers) + 'it' + str(niterations) + '.txt'
@@ -329,36 +320,28 @@ def get_diffs(model, nworkers, niterations):
     return produce_diff_from_base(itstructs)
 
 def get_alldiffs(model, workers, iterations):
-    return [get_diffs(model, n, iterations) for n in workers]
+    return {n: get_diffs(model, n, iterations) for n in workers}
 
-pipeline_alldiffs = None
-interrupt_alldiffs = None
-scatter_gather_alldiffs = None
-interrupt_nlf_alldiffs = None
+all_modeldata = dict()
 
-if args.model == "scatter-gather" or args.model == "all":
-    scatter_gather_alldiffs = get_alldiffs('scatter-gather', args.workers, args.iterations)
-    
-if args.model == "interrupt" or args.model == "all":
-    interrupt_alldiffs = get_alldiffs('interrupts', args.workers, args.iterations)
+if "scatter-gather" in args.models or "all" in  args.models:
+    alldiff = get_alldiffs('scatter-gather', args.workers, args.iterations)
+    #plot_diff_from_base('scatter-gather', alldiff, args.iterations)
+    all_modeldata['scatter-gather'] = alldiff
 
-if args.model == "interrupt-nlf" or args.model == "all":
-    interrupt_nlf_alldiffs = get_alldiffs('interrupt-nlf', args.workers, args.iterations)
+if "interrupt" in args.models or "all" in args.models:
+    alldiff = get_alldiffs('interrupts', args.workers, args.iterations)
+    #plot_diff_from_base('interrupt', alldiff, args.iterations)
+    all_modeldata['interrupt'] = alldiff
 
-if args.model == "pipeline" or args.model == "all":
-    pipeline_alldiffs = get_alldiffs('pipeline', args.workers, args.iterations)
+if "interrupt-nlf" in args.models or "all" in args.models:
+    alldiff = get_alldiffs('interrupt-nlf', args.workers, args.iterations)
+    #plot_diff_from_base('interrupt-nlf', alldiff, args.iterations)
+    all_modeldata['interrupt-nlf'] = alldiff
 
-if pipeline_alldiffs:
-    plot_diff_from_base('pipeline', pipeline_alldiffs, args.iterations)
+if "pipeline" in args.models or "all" in args.models:
+    alldiff = get_alldiffs('pipeline', args.workers, args.iterations)
+    #plot_diff_from_base('pipeline', alldiff, args.iterations)
+    all_modeldata['pipeline'] = alldiff
 
-if interrupt_alldiffs:
-    plot_diff_from_base('interrupt', [[]] + interrupt_alldiffs, args.iterations)
-
-if scatter_gather_alldiffs:
-    plot_diff_from_base('scatter-gather', scatter_gather_alldiffs, args.iterations)
-
-if interrupt_nlf_alldiffs:
-    plot_diff_from_base('interrupt-nlf', interrupt_nlf_alldiffs, args.iterations)
-
-if args.model == "all":
-    plot_increase([scatter_gather_alldiffs, pipeline_alldiffs, [[]] + interrupt_alldiffs, interrupt_nlf_alldiffs])
+plot_means_stddevs(all_modeldata, args.workers)
