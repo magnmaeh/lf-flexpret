@@ -6,6 +6,6 @@ source scripts/run_lib.sh
 
 set -e
 workers=(1 3 5 7)
-iterations=20
+iterations=10
 
 run_all "$iterations" "${workers[@]}"

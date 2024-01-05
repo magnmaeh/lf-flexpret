@@ -2,8 +2,8 @@
 # of benchmarks. This file should only be sourced by other run scripts.
 
 # List of benchmarks and LF program names (without .lf extensions)
-benchmarks=("scatter-gather")
-programs=("ScatterGather")
+benchmarks=("pipeline" "scatter-gather")
+programs=("Pipeline" "ScatterGather")
 
 # compile $program $iterations
 compile() {
@@ -48,6 +48,66 @@ compile_fp() {
   popd
 }
 
+# Used do_benchmark $benchmark $program $worker $iterations
+do_benchmark() {
+  local benchmark=$1
+  local program=$2
+  local worker=$3
+  local it=$4
+
+  echo "Benchmark: $benchmark, Program: $program"
+
+  # Compile source files
+  compile "$program" "$it"
+
+  # Execute program
+  execute "$benchmark" "$program" "$worker" "$it"
+}
+
+# Used do_interrupt_benchmark $benchmark $program $worker $iterations $memfile
+do_interrupt_benchmark() {
+  local benchmark=$1
+  local program=$2
+  local worker=$3
+  local it=$4
+
+  echo "Benchmark: $benchmark, Program: $program"
+
+  # Compile source files
+  compile "$program" "$it"
+
+  # Execute program
+  echo "Executing $program..."
+  
+  flexpret/emulator/clients/build/interrupter.elf -a -n $iterations -d 1000 &
+  fp-emu +ispm=src-gen/$program/$program.mem --client > results/$benchmark/w${worker}it$iterations.txt
+  wait
+}
+
+do_interrupt_nlf_benchmark() {
+  local benchmark=$1
+  local program=$2
+  local worker=$3
+  local it=$4
+
+  echo "Benchmark: $benchmark, Program: $program"
+  echo "Compiling $program..."
+
+  # Generate configuration for benchmarks
+  echo "#define CONFIG_ITERATIONS ($it)" > flexpret/programs/tests/c-tests/interrupt-delay/config.h
+
+  # Compile the test bench
+  make -C flexpret/programs/tests/c-tests/interrupt-delay
+
+  # Execute program
+  echo "Executing $program..."
+
+  # Run the interrupt client
+  flexpret/emulator/clients/build/interrupter.elf -a -n $iterations -d 1000 &
+  fp-emu +ispm=flexpret/programs/tests/c-tests/interrupt-delay/interrupt-delay.mem --client > results/$benchmark/w${worker}it$iterations.txt
+  wait
+}
+
 # Used run_single $benchmark $program $worker $iterations
 run_single() {
   local benchmark=$1
@@ -59,17 +119,10 @@ run_single() {
   clean_src_gen
   compile_fp $worker
 
-  echo "Benchmark: $benchmark, Program: $program"
-      
-  # Compile source files
-  compile "$program" "$it"
-
-  # Execute program
-  execute "$benchmark" "$program" "$worker" "$iterations"
+  do_benchmark "$benchmark" "$program" "$worker" "$it"
 
   # Analyze results
   python3 scripts/analyze.py $benchmark -i$iterations -w$worker
-
 }
 
 # run_all $iterations $workers
@@ -84,31 +137,32 @@ run_all() {
   for worker in "${workers[@]}"; do
     compile_fp "$worker"
 
-    # Do pipeline benchmark
-    benchmark="pipeline"
-    program="Pipeline$worker"
-    echo "Benchmark: $benchmark, Program: $program"
-
-    # Compile source files
-    compile "$program" "$iterations"
-
-    # Execute program
-    execute "$benchmark" "$program" "$worker" "$iterations"
-
-    # Do other benchmarks
+    # Run all benchmarks
     for ((i = 0; i < ${#benchmarks[@]}; i++)); do
       benchmark="${benchmarks[i]}"
       program="${programs[i]}"
-      echo "Benchmark: $benchmark, Program: $program"
-      # Compile source files
-      compile "$program" "$iterations"
 
-      # Execute program
-      execute "$benchmark" "$program" "$worker" "$iterations"
+      if [[ $benchmark == "pipeline" ]]; then
+        # Pipeline has different program name based on the number of workers
+        program="${programs[i]}""${worker}"
+      fi
+
+      if [[ $benchmark == "interrupt" ]]; then
+        if [[ $worker == 1 ]]; then
+          # This case is skipped due to a bug in the implementation
+          echo "Skipping benchmark Interrupt with 1 worker"
+        else
+          do_interrupt_benchmark "$benchmark" "$program" "$worker" "$iterations"
+        fi
+      elif [[ $benchmark == "interrupt-nlf" ]]; then
+        do_interrupt_nlf_benchmark "$benchmark" "$program" "$worker" "$iterations"
+      else
+        do_benchmark "$benchmark" "$program" "$worker" "$iterations"
+      fi
     done
 
   done
 
   # Analyze results
-  python3 scripts/analyze.py scatter-gather pipeline -i$iterations
+  python3 scripts/analyze.py scatter-gather pipeline -i$iterations -w "${workers[@]}"
 }
