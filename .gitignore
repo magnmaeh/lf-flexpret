@@ -1,4 +1,4 @@
 src-gen/
 include/
-results/
+results/*/*.txt
 src/config.h

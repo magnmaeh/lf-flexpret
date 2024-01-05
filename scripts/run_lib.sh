@@ -3,7 +3,7 @@
 
 # List of benchmarks and LF program names (without .lf extensions)
 benchmarks=("pipeline" "scatter-gather")
-programs=("Pipe" "SG")
+programs=("Pipe" "SG" "Jitter")
 
 # compile $program $iterations
 compile() {
