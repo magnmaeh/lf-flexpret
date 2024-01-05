@@ -1,0 +1,15 @@
+target C {
+  threading: true,
+  build: "../scripts/build_flexpret_unix.sh",
+}
+
+import Scatter,Worker,Gather from "./libScatterGather.lf"
+
+main reactor {
+  scatter = new Scatter(offset=3msec, period=1msec)
+  workers = new[1] Worker()
+  gather = new Gather(n_workers=1)
+
+  (scatter.out)+ -> workers.in
+  workers.out-> gather.in
+}

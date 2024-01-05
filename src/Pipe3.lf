@@ -1,0 +1,16 @@
+target C {
+  threading: true,
+  build: "../scripts/build_flexpret_unix.sh",
+}
+
+import First, Stage, Last, Logger from "./libPipeline.lf"
+
+main reactor {
+  first = new First()
+  s1 = new Stage()
+  last = new Last()
+  log = new Logger()
+  first.out -> s1.in after 10 msec
+  s1.out -> last.in after 10 msec
+  last.ts -> log.ts
+}

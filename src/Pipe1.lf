@@ -1,0 +1,14 @@
+target C {
+  threading: true,
+  build: "../scripts/build_flexpret_unix.sh",
+}
+
+import First, Stage, Last, Logger from "./libPipeline.lf"
+
+main reactor {
+  first = new First()
+  last = new Last()
+  log = new Logger()
+  first.out ->last.in
+  last.ts -> log.ts
+}

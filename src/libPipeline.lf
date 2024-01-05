@@ -1,0 +1,62 @@
+target C;
+
+preamble {=
+  #include "flexpret.h"
+=}
+
+reactor First(offset:time = 10 msec, period:time = 10 msec) {
+  output out:int
+  timer t(offset, period)
+  reaction(startup) {==}
+
+  reaction(t) -> out {=
+    lf_set(out, 42);
+  =}
+}
+
+reactor Stage {
+  input in:int
+  output out:int
+
+  reaction(in) -> out {=
+    lf_set(out, in->value);
+  =}
+}
+
+reactor Last(n_iterations:int = 10) {
+  input in: int 
+  output ts: instant_t
+
+  reaction(in) -> ts {=
+    instant_t phy = lf_time_physical();
+    instant_t log = lf_time_logical();
+
+    lf_set(ts, phy - log);
+  =}
+}
+
+reactor Logger(n_iterations:int = 10) {
+  input ts: instant_t 
+
+  state cnt:int = 0;
+  state ts: instant_t*
+
+  reaction(startup) {=
+    self->ts = (instant_t *) malloc(self->n_iterations * sizeof(instant_t));
+  =}
+
+  reaction(ts) {=
+    if (self->cnt < self->n_iterations) {
+      self->ts[self->cnt++] = ts->value;
+    }
+    if (self->cnt == self->n_iterations) {
+      lf_request_stop();
+    }
+  =}
+
+  reaction(shutdown) {=
+    for (int i = 0; i<10; i++) {
+      printf("Result=%lli\n", self->ts[i]);
+    }
+  =}
+}

@@ -3,7 +3,7 @@
 
 # List of benchmarks and LF program names (without .lf extensions)
 benchmarks=("pipeline" "scatter-gather")
-programs=("Pipeline" "ScatterGather")
+programs=("Pipe" "SG")
 
 # compile $program $iterations
 compile() {
@@ -19,6 +19,7 @@ compile() {
 # execute $benchmark $program $workers $iterations
 execute() {
   echo "Executing $2..."
+  mkdir -p results/$1
   make -C "src-gen/$2" run > "results/$1/w${3}it$4.txt"
 }
 
@@ -40,7 +41,7 @@ clean_src_gen() {
 
 # compile_fp $workers
 compile_fp() {
-  ((threads= $1 + 1))
+  ((threads= $1))
   echo "#### Compiling flexpret with $threads threads"
   pushd flexpret
   make clean
@@ -143,7 +144,10 @@ run_all() {
       program="${programs[i]}"
 
       if [[ $benchmark == "pipeline" ]]; then
-        # Pipeline has different program name based on the number of workers
+        program="${programs[i]}""${worker}"
+      fi
+
+      if [[ $benchmark == "scatter-gather" ]]; then
         program="${programs[i]}""${worker}"
       fi
 
@@ -164,5 +168,6 @@ run_all() {
   done
 
   # Analyze results
-  python3 scripts/analyze.py scatter-gather pipeline -i$iterations -w "${workers[@]}"
+  # python3 scripts/analyze.py scatter-gather pipeline -i$iterations -w "${workers[@]}"
+  python3 scripts/plot.py
 }
