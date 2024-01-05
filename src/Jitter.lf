@@ -1,0 +1,40 @@
+target C {
+    keepalive: true,
+    threading: false,
+    logging: warn,
+    build: "../scripts/build_flexpret_unix_unthreaded.sh"
+}
+
+preamble {=
+    #include <platform.h>
+    #include "config.h"
+
+    #define MAX_ITERATIONS (CONFIG_ITERATIONS)
+    #define TIMESTAMP_SIZE (MAX_ITERATIONS)
+=}
+
+main reactor {
+    state niterations: int = 0
+    state timestamps: instant_t[]
+
+    timer t(0, 10 msec)
+
+    reaction(startup) {=
+        self->timestamps = malloc(TIMESTAMP_SIZE * sizeof(instant_t));
+        self->timestamps[0] = lf_time_physical_elapsed();
+    =}
+
+    reaction(t) {=
+        self->timestamps[1 + self->niterations] = lf_time_physical_elapsed();
+        if (self->niterations++ == MAX_ITERATIONS) {
+            lf_request_stop();
+        }
+    =}
+
+    reaction(shutdown) {=
+        printf("Startup time: %lli\n", self->timestamps[0]);
+        for (int i = 1; i < self->niterations; i++) {
+            printf("Iteration: %i: Time: %lli,\n", i-1, self->timestamps[i]);
+        }
+    =}
+}

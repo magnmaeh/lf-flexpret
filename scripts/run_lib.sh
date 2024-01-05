@@ -2,8 +2,8 @@
 # of benchmarks. This file should only be sourced by other run scripts.
 
 # List of benchmarks and LF program names (without .lf extensions)
-benchmarks=("pipeline" "scatter-gather")
-programs=("Pipeline" "ScatterGather")
+benchmarks=("pipeline" "scatter-gather" "jitter")
+programs=("Pipeline" "ScatterGather" "Jitter")
 
 # compile $program $iterations
 compile() {
