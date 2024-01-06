@@ -1,0 +1,46 @@
+/** Reactor that prints time-value pairs to a file. */
+target C
+
+preamble {=
+  #include <string.h>
+  #include <stdlib.h>
+  #include <flexpret.h>
+=}
+
+reactor PrintToFile(filename: string = "output.data") {
+  input y: double
+  state name: char[32]
+  state file: char* = {= NULL =}
+  state filepos: int = 0
+  state filenum: int = 1
+
+  reaction(startup) {=
+    self->name = self->filename;
+    self->file = malloc(0x2000);
+    if(self->file == NULL) {
+      lf_print_error_and_exit("Failed to malloc file: %s", self->filename);
+    }
+  =}
+
+  reaction(y) {=
+    double t = lf_time_logical_elapsed() / 1.0e9;
+    self->filepos += sprintf(&self->file[self->filepos], "%.3f %f\n", t, y->value) - 1;
+    
+    if ((int) t == self->filenum) {
+      // Dump file
+      self->file[self->filepos] = '\0';
+      printf("File: %s[%i]\n%s\n", self->name, self->filenum-1, self->file);  
+      
+      self->filenum++;
+      self->filepos = 0;
+    }
+  =}
+
+  reaction(shutdown) {=
+    // Dump remainder of file
+    if (self->filepos > 0) {
+      self->file[self->filepos] = '\0';
+      printf("File: %s[%i]\n%s\n", self->name, self->filenum, self->file);
+    }
+  =}
+}
