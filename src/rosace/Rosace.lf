@@ -45,8 +45,9 @@
  */
 target C {
   fast: true,
-  build: "../../scripts/build_flexpret_unix.sh",
-  timeout: 60 sec
+  build: "../../scripts/build_flexpret_unix_unthreaded.sh",
+  threading: false,
+  timeout: 1 sec
 }
 
 import Aircraft from "AircraftSimulator.lf"
@@ -69,9 +70,9 @@ preamble {=
 reactor Variables {
 }
 
-reactor Command(period: time = 100 ms, value: double = 0.0) {
+reactor Command(period: time = 100 ms, value: float = 0.0) {
   timer t(0, period)
-  output c: double
+  output c: float
 
   reaction(t) -> c {=
     lf_set(c, self->value);

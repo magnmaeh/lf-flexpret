@@ -1,0 +1,58 @@
+/** A utility reactor to print the pendulum state into a csv file. */
+target C
+
+preamble {=
+  #include <math.h>
+  #include <platform.h>
+  #define PI 3.14159265
+=}
+
+reactor Print(filename: string = "pendulum.csv") {
+  input control: float
+  input modeID: float
+  input energy: float
+  input theta: float
+  input phi: float
+
+  state name: char[32]
+  state file: char* = {= NULL =}
+  state filepos: int = 0
+  state filenum: int = 1
+
+  reaction(startup) {=
+    self->name = self->filename;
+    self->file = malloc(0x2000);
+    if(self->file == NULL) {
+      lf_print_error_and_exit("Failed to malloc file: %s", self->filename);
+    }
+  =}
+
+  reaction(control, modeID, energy, theta, phi) {=
+    float t = lf_time_logical_elapsed() / 1.0e9;
+
+    self->filepos += sprintf(&self->file[self->filepos], "%.3f,%f,%f,%f,%f,%f\n",
+      t, 
+      control->value, 
+      modeID->value, 
+      energy->value, 
+      fmod(theta->value, PI), 
+      fmod(phi->value, PI)) - 1;
+    
+    if ((int) (10 * t) == self->filenum) {
+      // Dump file
+      self->file[self->filepos] = '\0';
+      printf("File: %s[%i]\n%s\n", self->name, self->filenum-1, self->file);  
+      
+      self->filenum++;
+      self->filepos = 0;
+    }
+  =}
+
+  reaction(shutdown) {=
+    printf("logical time: %lli, physical time: %lli\n", 
+      lf_time_logical_elapsed(),
+      lf_time_physical_elapsed()
+    );
+    free(self->file);
+  =}
+}

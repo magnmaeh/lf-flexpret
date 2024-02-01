@@ -44,15 +44,15 @@ preamble {=
 
 reactor Filter(
     period: time = 10 ms,
-    a: double[] = {0.0, 0.0},
-    b: double[] = {0.0, 0.0},
-    init_x1: double = 0.0,
-    init_x2: double = 0.0) {
-  input x: double
-  output y: double
+    a: float[] = {0.0, 0.0},
+    b: float[] = {0.0, 0.0},
+    init_x1: float = 0.0,
+    init_x2: float = 0.0) {
+  input x: float
+  output y: float
 
-  state x1: double = 0.0
-  state x2: double = 0.0
+  state x1: float = 0.0
+  state x2: float = 0.0
 
   timer t(0, period)
 
@@ -66,17 +66,17 @@ reactor Filter(
   =}
 
   reaction(t) x {=
-    double x1_tmp = - self->a[0] * self->x2 + self->b[0] * x->value;
-    double x2_tmp = self->x1 - self->a[1] * self->x2 + self->b[1] * x->value;
+    float x1_tmp = - self->a[0] * self->x2 + self->b[0] * x->value;
+    float x2_tmp = self->x1 - self->a[1] * self->x2 + self->b[1] * x->value;
     // Update
     self->x1 = x1_tmp;
     self->x2 = x2_tmp;
   =}
 }
 
-reactor Command(period: time = 100 ms, value: double = 0.0) {
+reactor Command(period: time = 100 ms, value: float = 0.0) {
   timer t(0, period)
-  output c: double
+  output c: float
 
   reaction(t) -> c {=
     lf_set(c, self->value);
@@ -85,25 +85,25 @@ reactor Command(period: time = 100 ms, value: double = 0.0) {
 
 reactor Hold(
     period: time = 20 ms,
-    Kp_h: double = 0.1014048,
-    Ki_h: double = 0.0048288,
-    h_switch: double = 50.0,
-    Vz_c: double = -2.5,
-    Va_c: double = 0.0,
-    h_c: double = 11000) {
+    Kp_h: float = 0.1014048,
+    Ki_h: float = 0.0048288,
+    h_switch: float = 50.0,
+    Vz_c: float = -2.5,
+    Va_c: float = 0.0,
+    h_c: float = 11000) {
   timer t(0, period)
 
-  input s: double   // Set point
-  input x: double   // Measurement
+  input s: float   // Set point
+  input x: float   // Measurement
 
-  output c: double  // Command
+  output c: float  // Command
 
-  state integrator: double = 532.2730285
+  state integrator: float = 532.2730285
 
   reaction(t) s, x -> c {=
-    double y = 0.0;
+    float y = 0.0;
 
-    double Ts_h = ((double)self->period)/1e9; // Period in seconds. (1.0/50.0)
+    float Ts_h = ((float)self->period)/1e9; // Period in seconds. (1.0/50.0)
 
     if ((x->value - s->value) < -self->h_switch) {
       // Output
@@ -124,26 +124,26 @@ reactor Hold(
 
 reactor VzControl(
     period: time = 20 ms,
-    K2_intVz: double = 0.000627342822264,
-    K2_Vz: double = -0.003252836726554,
-    K2_q: double = 0.376071446897134,
-    K2_az: double = -0.001566907423747) {
+    K2_intVz: float = 0.000627342822264,
+    K2_Vz: float = -0.003252836726554,
+    K2_q: float = 0.376071446897134,
+    K2_az: float = -0.001566907423747) {
   timer t(0, period)
 
-  input Vzc: double
-  input azf: double
-  input Vzf: double
-  input qf: double
+  input Vzc: float
+  input azf: float
+  input Vzf: float
+  input qf: float
 
-  output delta_ec: double
+  output delta_ec: float
 
-  state integrator: double = 0.0
+  state integrator: float = 0.0
 
   reaction(t) Vzc, azf, Vzf, qf -> delta_ec {=
-    double Ts_K2 = ((double)self->period)/1e9; // Period in seconds. (1.0/50.0)
+    float Ts_K2 = ((float)self->period)/1e9; // Period in seconds. (1.0/50.0)
 
     // Output
-    double y = self->K2_intVz * self->integrator
+    float y = self->K2_intVz * self->integrator
         + self->K2_Vz * Vzf->value
         + self->K2_q * qf->value
         + self->K2_az * azf->value + delta_e_eq;
@@ -156,26 +156,26 @@ reactor VzControl(
 
 reactor VaControl(
     period: time = 20 ms,
-    K1_intVa: double = 0.049802610664357,
-    K1_Va: double = -0.486813084356079,
-    K1_Vz: double = -0.077603095495388,
-    K1_q: double = 21.692383376322041) {
+    K1_intVa: float = 0.049802610664357,
+    K1_Va: float = -0.486813084356079,
+    K1_Vz: float = -0.077603095495388,
+    K1_q: float = 21.692383376322041) {
   timer t(0, period)
 
-  input Vzf: double
-  input Vaf: double
-  input Vac: double
-  input qf: double
+  input Vzf: float
+  input Vaf: float
+  input Vac: float
+  input qf: float
 
-  output delta_thc: double
+  output delta_thc: float
 
-  state integrator: double = 0.0
+  state integrator: float = 0.0
 
   reaction(t) Vzf, Vaf, Vac, qf -> delta_thc {=
-    double Ts_K1 = ((double)self->period)/1e9; // Period in seconds. (1.0/50.0)
+    float Ts_K1 = ((float)self->period)/1e9; // Period in seconds. (1.0/50.0)
 
     // Output
-    double y = self->K1_intVa * self->integrator
+    float y = self->K1_intVa * self->integrator
         + self->K1_Va * (Vaf->value - Va_eq)
         + self->K1_Vz * Vzf->value + self->K1_q * qf->value + delta_th_eq;
 
@@ -189,19 +189,19 @@ reactor VaControl(
 reactor RosaceController(filter_period: time = 10 ms) {
   // Sensor inputs from aircraft
   // Vertical speed
-  input Vz: double
-  input Va: double          // True airspeed
-  input h: double           // Altitude measurement
-  input az: double          // Vertical acceleration
-  input q: double           // Pitch rate
+  input Vz: float
+  input Va: float          // True airspeed
+  input h: float           // Altitude measurement
+  input az: float          // Vertical acceleration
+  input q: float           // Pitch rate
 
   // Command inputs
   // Altitude command
-  input c: double
-  input s: double           // Speed command
+  input c: float
+  input s: float           // Speed command
 
-  output delta_thc: double  // Engine control
-  output delta_ec: double   // Elevator control
+  output delta_thc: float  // Engine control
+  output delta_ec: float   // Elevator control
 
   h_c = new Hold()
 

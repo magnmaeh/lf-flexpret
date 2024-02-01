@@ -8,7 +8,7 @@ preamble {=
 =}
 
 reactor PrintToFile(filename: string = "output.data") {
-  input y: double
+  input y: float
   state name: char[32]
   state file: char* = {= NULL =}
   state filepos: int = 0
@@ -23,7 +23,7 @@ reactor PrintToFile(filename: string = "output.data") {
   =}
 
   reaction(y) {=
-    double t = lf_time_logical_elapsed() / 1.0e9;
+    float t = lf_time_logical_elapsed() / 1.0e9;
     self->filepos += sprintf(&self->file[self->filepos], "%.3f %f\n", t, y->value) - 1;
     
     if ((int) t == self->filenum) {
@@ -37,6 +37,8 @@ reactor PrintToFile(filename: string = "output.data") {
   =}
 
   reaction(shutdown) {=
+    float t = lf_time_physical_elapsed() / 1.0e9;
+    printf("shutdown physical time: %f\n", t);
     // Dump remainder of file
     if (self->filepos > 0) {
       self->file[self->filepos] = '\0';
