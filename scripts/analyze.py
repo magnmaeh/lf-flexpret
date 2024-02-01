@@ -58,7 +58,7 @@ def extract_itstrings(path: str) -> List[str]:
         text = f.read()
         for line in text.split('\n'):
             # Remove the '[x]: ' part of each line
-            line = line[5:]
+            #line = line[5:]
             if line.startswith('Iteration'):
                 if 'NA' in line:
                     idx_offset += 1
@@ -85,7 +85,7 @@ def itstrings_to_itstruct(itstrings: List[str], idx_offset: int) -> List[ItStruc
         iteration = int(iteration[10:])
         
         # We only really want the iteration to do an assertion on the index
-        assert(iteration == (idx + idx_offset))
+        #assert(iteration == (idx + idx_offset))
 
         # Now extract the base time
         base = int(iteration_and_base[2])
@@ -322,26 +322,31 @@ def get_diffs(model, nworkers, niterations):
 def get_alldiffs(model, workers, iterations):
     return {n: get_diffs(model, n, iterations) for n in workers}
 
-all_modeldata = dict()
+#all_modeldata = dict()
+#
+#if "scatter-gather" in args.models or "all" in  args.models:
+#    alldiff = get_alldiffs('scatter-gather', args.workers, args.iterations)
+#    #plot_diff_from_base('scatter-gather', alldiff, args.iterations)
+#    all_modeldata['scatter-gather'] = alldiff
+#
+#if "interrupt" in args.models or "all" in args.models:
+#    alldiff = get_alldiffs('interrupts', args.workers, args.iterations)
+#    #plot_diff_from_base('interrupt', alldiff, args.iterations)
+#    all_modeldata['interrupt'] = alldiff
+#
+#if "interrupt-nlf" in args.models or "all" in args.models:
+#    alldiff = get_alldiffs('interrupt-nlf', args.workers, args.iterations)
+#    #plot_diff_from_base('interrupt-nlf', alldiff, args.iterations)
+#    all_modeldata['interrupt-nlf'] = alldiff
+#
+#if "pipeline" in args.models or "all" in args.models:
+#    alldiff = get_alldiffs('pipeline', args.workers, args.iterations)
+#    #plot_diff_from_base('pipeline', alldiff, args.iterations)
+#    all_modeldata['pipeline'] = alldiff
 
-if "scatter-gather" in args.models or "all" in  args.models:
-    alldiff = get_alldiffs('scatter-gather', args.workers, args.iterations)
-    #plot_diff_from_base('scatter-gather', alldiff, args.iterations)
-    all_modeldata['scatter-gather'] = alldiff
+#plot_means_stddevs(all_modeldata, args.workers)
 
-if "interrupt" in args.models or "all" in args.models:
-    alldiff = get_alldiffs('interrupts', args.workers, args.iterations)
-    #plot_diff_from_base('interrupt', alldiff, args.iterations)
-    all_modeldata['interrupt'] = alldiff
+path = 'jitter.txt'
+itstrs, idx_offset = extract_itstrings(path)
+itstructs = itstrings_to_itstruct(itstrs, idx_offset)
 
-if "interrupt-nlf" in args.models or "all" in args.models:
-    alldiff = get_alldiffs('interrupt-nlf', args.workers, args.iterations)
-    #plot_diff_from_base('interrupt-nlf', alldiff, args.iterations)
-    all_modeldata['interrupt-nlf'] = alldiff
-
-if "pipeline" in args.models or "all" in args.models:
-    alldiff = get_alldiffs('pipeline', args.workers, args.iterations)
-    #plot_diff_from_base('pipeline', alldiff, args.iterations)
-    all_modeldata['pipeline'] = alldiff
-
-plot_means_stddevs(all_modeldata, args.workers)

@@ -1,0 +1,39 @@
+target C {
+    threading: false,
+    build: "../../scripts/build_flexpret_unix_unthreaded.sh"
+}
+
+import Logger, Sensor, ProcessUnbounded, Actuator from "./libControl.lf"
+
+preamble {=
+    #include <platform.h>
+    #include "config.h"
+=}
+
+main reactor {
+    logical action actuate: int
+
+    log = new Logger(n_iterations = {= CONFIG_ITERATIONS =})
+
+    sensor = new Sensor(n_iterations = {= CONFIG_ITERATIONS =})
+    process = new ProcessUnbounded()
+    actuator = new Actuator(n_iterations = {= CONFIG_ITERATIONS =})
+    
+    sensor.ts -> log.ts_sensor
+    process.ts -> log.ts_process
+    actuator.ts -> log.ts_actuator
+
+    reaction(process.y) -> actuate {=
+        lf_schedule(actuate, MSEC(5));
+    =}
+
+    reaction(actuate) -> actuator.x {=
+        lf_set(actuator.x, 3);
+    =}
+
+    reaction(shutdown) {=
+        printf("shutdown\n");
+    =}
+
+    sensor.y -> process.x
+}
