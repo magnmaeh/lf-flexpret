@@ -26,7 +26,7 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "../platform.h"
+#include "low_level_platform.h"
 
 /**
  * Used to keep track of the number of nested critical sections. 
@@ -43,7 +43,7 @@ static int critical_section_num_nested = 0;
 static volatile uint32_t last_time = 0;
 static volatile uint64_t epoch = 0;
 #define EPOCH_DURATION_NS (1ULL << 32)
-int lf_clock_gettime(instant_t* t) {
+int _lf_clock_gettime(instant_t* t) {
     uint32_t now = rdtime();
     if (now < last_time) {
         epoch += EPOCH_DURATION_NS;
@@ -59,12 +59,33 @@ int lf_clock_gettime(instant_t* t) {
  * @param wakeup_time The time instant at which to wake up.
  * @return int 0 if sleep completed, or -1 if it was interrupted.
  */
-int lf_sleep_until_locked(instant_t wakeup_time) {
+/* int lf_sleep_until_locked(instant_t wakeup_time) {
 
     // FIXME: Handle sleep durations exceeding 32bit nanoseconds range
     // FIXME: Handle async events
     fp_delay_until(wakeup_time);
     return 0;
+} */
+
+int _lf_interruptable_sleep_until_locked(environment_t *env, instant_t wakeup_time) {
+    int ret = 0;
+    if (wakeup_time < 0) {
+        return ret;
+    }
+
+    // Enable interrupts and execute wait until instruction
+    lf_critical_section_exit(env);
+
+    // Wait until will stop sleep if interrupt occurs
+    fp_wait_until(wakeup_time);
+
+    if (rdtime64() < wakeup_time) {
+        // Interrupt occurred because we did not wait full wakeup_time
+        ret = -1;
+    }
+
+    lf_critical_section_enter(env);
+    return ret;
 }
 
 int lf_sleep(interval_t sleep_duration) {
@@ -74,11 +95,9 @@ int lf_sleep(interval_t sleep_duration) {
 /**
  * Initialize the LF clock.
  */
-void lf_initialize_clock() {}
+void _lf_initialize_clock() {}
 
-// In the threaded case, LF provides these itself
-#if defined(LF_UNTHREADED)
-int lf_critical_section_enter() {
+int lf_disable_interrupts_nested() {
     // In the special case where this function is called during an interrupt 
     // subroutine (isr) it should have no effect
     if ((read_csr(CSR_STATUS) & 0x04) == 0x04) return 0;
@@ -90,7 +109,7 @@ int lf_critical_section_enter() {
     return 0;
 }
 
-int lf_critical_section_exit() {
+int lf_enable_interrupts_nested() {
     // In the special case where this function is called during an interrupt 
     // subroutine (isr) it should have no effect
     if ((read_csr(CSR_STATUS) & 0x04) == 0x04) return 0;
@@ -102,11 +121,6 @@ int lf_critical_section_exit() {
     return 0;
 }
 
-int lf_notify_of_event() {
-    return 0;
-}
-#endif // defined(LF_UNTHREADED)
-
 /**
  * Pause execution for a number of nanoseconds.
  *
@@ -115,30 +129,26 @@ int lf_notify_of_event() {
  */
 int lf_nanosleep(interval_t requested_time) {
     instant_t t;
-    lf_clock_gettime(&t);
+    _lf_clock_gettime(&t);
     instant_t expire_time = t + requested_time;
     while (t < expire_time) {
-        lf_clock_gettime(&t);
+        _lf_clock_gettime(&t);
     }
     return 0;
 }
 
+#if defined(LF_SINGLE_THREADED)
+
+int _lf_single_threaded_notify_of_event() {
+    // TODO: Verify: No need to do anything, because an interrupt will
+    // cancel wait until
+    return 0;
+}
+
+#endif // defined(LF_SINGLE_THREADED)
+
 // Threaded implementation
 #if defined LF_THREADED || defined _LF_TRACE
-
-int lf_available_cores() {
-    return NUM_THREADS; // Return the number of Flexpret HW threads
-}
-
-int lf_thread_create(lf_thread_t* thread, void *(*lf_thread) (void *), void* arguments) {
-    // TODO: Decide between HRTT or SRTT
-    return fp_thread_create(HRTT, thread, lf_thread, arguments);
-}
-
-
-int lf_thread_join(lf_thread_t thread, void** thread_return) {
-    return fp_thread_join(thread, thread_return);
-}
 
 int lf_mutex_init(lf_mutex_t* mutex) {
     *mutex = (lf_mutex_t) FP_LOCK_INITIALIZER;
@@ -170,44 +180,23 @@ int lf_cond_wait(lf_cond_t* cond) {
     return fp_cond_wait(cond);
 }
 
-int lf_cond_timedwait(lf_cond_t* cond, instant_t absolute_time_ns) {
+int _lf_cond_timedwait(lf_cond_t* cond, instant_t absolute_time_ns) {
     return fp_cond_timed_wait(cond, absolute_time_ns);
 }
 
-// https://www.ibm.com/docs/en/xl-c-and-cpp-aix/16.1?topic=functions-sync-fetch-add
-uint32_t __sync_fetch_and_add_4(volatile void *ptr, const uint32_t value) {
-    static lf_mutex_t sync_fetch_and_add_lock = FP_LOCK_INITIALIZER;
-    lf_mutex_lock(&sync_fetch_and_add_lock);
-    const uint32_t prev_value = (*(uint32_t *)ptr);
-    (*(uint32_t *) ptr) += value;
-    lf_mutex_unlock(&sync_fetch_and_add_lock);
-    return prev_value;
+int lf_available_cores() {
+    return NUM_THREADS; // Return the number of Flexpret HW threads
 }
 
-// https://www.ibm.com/docs/en/xcfbg/121.141?topic=functions-sync-add-fetch
-uint32_t __sync_add_and_fetch_4(volatile void *ptr, const uint32_t value) {
-    static lf_mutex_t sync_add_and_fetch_lock = FP_LOCK_INITIALIZER;
-    lf_mutex_lock(&sync_add_and_fetch_lock);
-    const uint32_t new_value = *((uint32_t *) ptr) + value;
-    (*(uint32_t *) ptr) = new_value;
-    lf_mutex_unlock(&sync_add_and_fetch_lock);
-    return new_value;
+int lf_thread_create(lf_thread_t* thread, void *(*lf_thread) (void *), void* arguments) {
+    // TODO: Decide between HRTT or SRTT
+    return fp_thread_create(HRTT, thread, lf_thread, arguments);
 }
 
-// https://www.ibm.com/docs/en/xl-c-and-cpp-aix/16.1?topic=functions-sync-bool-compare-swap
-bool __sync_bool_compare_and_swap_4(volatile void *ptr, uint32_t compare_value, uint32_t new_value) {
-    static lf_mutex_t sync_bool_compare_and_swap_lock = FP_LOCK_INITIALIZER;
-    lf_mutex_lock(&sync_bool_compare_and_swap_lock);
-    const bool retval = (*(bool *) ptr) == compare_value;
-    
-    // Swap only occurs if condition is true
-    if (retval) {
-        (*(bool *) ptr) = new_value;
-    }
-    lf_mutex_unlock(&sync_bool_compare_and_swap_lock);
-    return retval;
-}
 
+int lf_thread_join(lf_thread_t thread, void** thread_return) {
+    return fp_thread_join(thread, thread_return);
+}
 #endif
 
 /**
