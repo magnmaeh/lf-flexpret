@@ -1,7 +1,7 @@
 target C {
     single-threaded: true,
     logging: debug,
-    build: "../scripts/build_flexpret_unix_unthreaded.sh"
+    build: "../../scripts/build_flexpret_unix_unthreaded.sh"
 };
 
 preamble {=

@@ -2,7 +2,7 @@ target C {
     keepalive: true, // Do not exit when event queue is empty.
     single-threaded: true,
     logging: error,
-    build: "../scripts/build_flexpret_unix_unthreaded.sh"
+    build: "../../scripts/build_flexpret_unix_unthreaded.sh"
 }
 
 preamble {=

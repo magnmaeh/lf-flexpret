@@ -34,7 +34,8 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * We should only disable interrupts when this is zero and we enter a critical section
  * We should only  enable interrupts when we exit a critical section and this is zero
  */
-static int critical_section_num_nested = 0;
+static int critical_section_num_nested[NUM_THREADS] = 
+    THREAD_ARRAY_INITIALIZER(0);
 
 /**
  * @return 0 for success, or -1 for failure
@@ -52,20 +53,6 @@ int _lf_clock_gettime(instant_t* t) {
     last_time = now;
     return 0;
 }
-
-/**
- * @brief Sleep until the given wakeup time.
- * 
- * @param wakeup_time The time instant at which to wake up.
- * @return int 0 if sleep completed, or -1 if it was interrupted.
- */
-/* int lf_sleep_until_locked(instant_t wakeup_time) {
-
-    // FIXME: Handle sleep durations exceeding 32bit nanoseconds range
-    // FIXME: Handle async events
-    fp_delay_until(wakeup_time);
-    return 0;
-} */
 
 int _lf_interruptable_sleep_until_locked(environment_t *env, instant_t wakeup_time) {
     int ret = 0;
@@ -92,18 +79,23 @@ int lf_sleep(interval_t sleep_duration) {
     // FIXME: Handle sleep durations exceeding 32bit
     fp_delay_for(sleep_duration);
 }
+
 /**
  * Initialize the LF clock.
  */
-void _lf_initialize_clock() {}
+void _lf_initialize_clock() {
+    // FlexPRET does not require any initialization
+}
 
 int lf_disable_interrupts_nested() {
     // In the special case where this function is called during an interrupt 
     // subroutine (isr) it should have no effect
     if ((read_csr(CSR_STATUS) & 0x04) == 0x04) return 0;
 
-    fp_assert(critical_section_num_nested >= 0, "Number of nested critical sections less than zero.");
-    if (critical_section_num_nested++ == 0) {
+    uint32_t hartid = read_hartid();
+
+    fp_assert(critical_section_num_nested[hartid] >= 0, "Number of nested critical sections less than zero.");
+    if (critical_section_num_nested[hartid]++ == 0) {
         DISABLE_INTERRUPTS();
     }
     return 0;
@@ -114,10 +106,12 @@ int lf_enable_interrupts_nested() {
     // subroutine (isr) it should have no effect
     if ((read_csr(CSR_STATUS) & 0x04) == 0x04) return 0;
 
-    if (--critical_section_num_nested == 0) {
+    uint32_t hartid = read_hartid();
+
+    if (--critical_section_num_nested[hartid] == 0) {
         ENABLE_INTERRUPTS();
     }
-    fp_assert(critical_section_num_nested >= 0, "Number of nested critical sections less than zero.");
+    fp_assert(critical_section_num_nested[hartid] >= 0, "Number of nested critical sections less than zero.");
     return 0;
 }
 
@@ -140,18 +134,29 @@ int lf_nanosleep(interval_t requested_time) {
 #if defined(LF_SINGLE_THREADED)
 
 int _lf_single_threaded_notify_of_event() {
-    // TODO: Verify: No need to do anything, because an interrupt will
-    // cancel wait until
+    // No need to do anything, because an interrupt will cancel wait until
+    // This is specific to FlexPRET
     return 0;
 }
 
-#endif // defined(LF_SINGLE_THREADED)
+#else // Multi threaded
 
-// Threaded implementation
-#if defined LF_THREADED || defined _LF_TRACE
+int lf_available_cores() {
+    return NUM_THREADS; // Return the number of Flexpret HW threads
+}
+
+int lf_thread_create(lf_thread_t* thread, void *(*lf_thread) (void *), void* arguments) {
+    // TODO: Decide between HRTT or SRTT
+    return fp_thread_create(HRTT, thread, lf_thread, arguments);
+}
+
+int lf_thread_join(lf_thread_t thread, void** thread_return) {
+    return fp_thread_join(thread, thread_return);
+}
 
 int lf_mutex_init(lf_mutex_t* mutex) {
     *mutex = (lf_mutex_t) FP_LOCK_INITIALIZER;
+    return 0;
 }
 
 int lf_mutex_lock(lf_mutex_t* mutex) {
@@ -166,6 +171,7 @@ int lf_mutex_unlock(lf_mutex_t* mutex) {
 
 int lf_cond_init(lf_cond_t* cond, lf_mutex_t* mutex) {
     *cond = (lf_cond_t) FP_COND_INITIALIZER(mutex);
+    return 0;
 }
 
 int lf_cond_broadcast(lf_cond_t* cond) {
@@ -184,18 +190,12 @@ int _lf_cond_timedwait(lf_cond_t* cond, instant_t absolute_time_ns) {
     return fp_cond_timed_wait(cond, absolute_time_ns);
 }
 
-int lf_available_cores() {
-    return NUM_THREADS; // Return the number of Flexpret HW threads
+int lf_thread_id() {
+    return read_hartid();
 }
 
-int lf_thread_create(lf_thread_t* thread, void *(*lf_thread) (void *), void* arguments) {
-    // TODO: Decide between HRTT or SRTT
-    return fp_thread_create(HRTT, thread, lf_thread, arguments);
-}
-
-
-int lf_thread_join(lf_thread_t thread, void** thread_return) {
-    return fp_thread_join(thread, thread_return);
+void initialize_lf_thread_id() {
+    // TODO: Verify: Don't think anything is necessary here for FlexPRET
 }
 #endif
 

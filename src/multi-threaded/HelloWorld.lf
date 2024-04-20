@@ -1,0 +1,25 @@
+target C {
+    timeout: 300 ms,
+    build: "../../scripts/build_flexpret_unix.sh"
+};
+
+preamble {=
+    #include <platform.h>
+=}
+
+reactor PrintHi {
+    state x: int = 0
+    timer t(0 ms, 10 ms)
+    
+    reaction(t) {=
+        printf("Hi with x = %i\n", self->x++);
+    =}
+}
+
+main reactor {
+    reaction(startup) {=
+        printf("Hello world (startup)\n");
+    =}
+
+    his = new[3] PrintHi()
+}

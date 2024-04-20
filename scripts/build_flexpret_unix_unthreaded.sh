@@ -63,8 +63,6 @@ GENERAL_SOURCES := \
 		$(LF_SOURCE_GEN_DIRECTORY)/core/tag.c \
 		$(LF_SOURCE_GEN_DIRECTORY)/core/tracepoint.c \
 		$(LF_SOURCE_GEN_DIRECTORY)/$(NAME).c
-#$(LF_SOURCE_GEN_DIRECTORY)/lib/schedule.c
-#$(LF_SOURCE_GEN_DIRECTORY)/core/trace.c
 
 UTIL_SOURCES := \
 		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/hashset/hashset.c \
