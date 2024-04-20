@@ -1,13 +1,11 @@
 target C {
-    threading: false,
-    build: "../scripts/build_flexpret_unix.sh",
+    single-threaded: true,
+    build: "../scripts/build_flexpret_unix_unthreaded.sh",
     timeout: 100 ms
 };
 
 preamble {=
-    #include <stdint.h>
-    #include <flexpret_io.h>
-    #include <printf/printf.h>
+    #include <platform.h>
 =}
 
 main reactor {
