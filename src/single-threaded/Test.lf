@@ -1,11 +1,10 @@
 target C {
     single-threaded: true,
-    logging: debug,
     build: "../../scripts/build_flexpret_unix_unthreaded.sh"
 };
 
 preamble {=
-    #include <flexpret_io.h>
+    #include <flexpret.h>
 =}
 
 main reactor {

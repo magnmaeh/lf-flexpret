@@ -2,6 +2,7 @@
 
 # Project root is one up from the bin directory.
 PROJECT_ROOT=$LF_BIN_DIRECTORY/..
+COPY_FROM=$PROJECT_ROOT/copy
 
 echo "Generating a Makefile for FlexPRET in $LF_SOURCE_GEN_DIRECTORY"
 echo "Current directory is $(pwd)"
@@ -12,12 +13,16 @@ LF_FILENAME=${LF_SOURCE_GEN_DIRECTORY##*/} # Get the LF filename without the .lf
 echo "The LF filename is $LF_FILENAME.lf."
 
 # Copy c files into /core.
-cp "$PROJECT_ROOT/platform/lf_flexpret_support.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
-cp "$PROJECT_ROOT/platform/lf_atomic_irq.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
+cp "$COPY_FROM/platform/lf_flexpret_support.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
+cp "$COPY_FROM/platform/lf_atomic_irq.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
 
 # Copy header files into /include.
-cp "$PROJECT_ROOT/platform/lf_flexpret_support.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api/platform"
-cp "$PROJECT_ROOT/platform/low_level_platform.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api"
+cp "$COPY_FROM/platform/lf_flexpret_support.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api/platform"
+cp "$COPY_FROM/platform/low_level_platform.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api"
+
+# Copy CMakeLists.txt
+cp "$COPY_FROM/CMakeLists.txt" "$LF_SOURCE_GEN_DIRECTORY/"
+cp "$COPY_FROM/platform/CMakeLists.txt" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl"
 
 printf '
 # LF variables
@@ -97,11 +102,12 @@ include $(FLEXPRET_ROOT_DIR)/Makefrag
 ' "$PROJECT_ROOT" "$LF_SOURCE_GEN_DIRECTORY" "$LF_FILENAME" > "$LF_SOURCE_GEN_DIRECTORY/Makefile"
 
 echo "Created $LF_SOURCE_GEN_DIRECTORY/Makefile"
-
-cd "$LF_SOURCE_GEN_DIRECTORY"
-make
-
-echo ""
-echo "**** To get simulation outputs:"
-echo "cd $LF_SOURCE_GEN_DIRECTORY; fp-emu +ispm=$LF_FILENAME.mem"
-echo ""
+#
+#cd "$LF_SOURCE_GEN_DIRECTORY"
+##make
+#
+#echo ""
+#echo "**** To get simulation outputs:"
+#echo "cd $LF_SOURCE_GEN_DIRECTORY; fp-emu +ispm=$LF_FILENAME.mem"
+#echo ""
+#
