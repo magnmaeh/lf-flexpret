@@ -2,6 +2,7 @@
 
 # Project root is one up from the bin directory.
 PROJECT_ROOT=$LF_BIN_DIRECTORY/..
+COPY_FROM=$PROJECT_ROOT/copy
 
 echo "Generating a Makefile for FlexPRET in $LF_SOURCE_GEN_DIRECTORY"
 echo "Current directory is $(pwd)"
@@ -12,104 +13,130 @@ LF_FILENAME=${LF_SOURCE_GEN_DIRECTORY##*/} # Get the LF filename without the .lf
 echo "The LF filename is $LF_FILENAME.lf."
 
 # Copy c files into /core.
-cp "$PROJECT_ROOT/platform/lf_flexpret_support.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
-cp "$PROJECT_ROOT/platform/lf_atomic_irq.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
+cp "$COPY_FROM/platform/lf_flexpret_support.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
+cp "$COPY_FROM/platform/lf_atomic_irq.c" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl/src"
 
 # Copy header files into /include.
-cp "$PROJECT_ROOT/platform/lf_flexpret_support.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api/platform"
-cp "$PROJECT_ROOT/platform/low_level_platform.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api"
+cp "$COPY_FROM/platform/lf_flexpret_support.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api/platform"
+cp "$COPY_FROM/platform/low_level_platform.h" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api"
 
+# Copy CMakeLists.txt
+cp "$COPY_FROM/platform/impl/CMakeLists.txt" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/impl"
+cp "$COPY_FROM/platform/api/CMakeLists.txt" "$LF_SOURCE_GEN_DIRECTORY/low_level_platform/api"
+
+# Need to generate top-level CMakeLists.txt because some of it depends on variables
 printf '
-# LF variables
-LF_PROJECT_ROOT := %s
-LF_SOURCE_GEN_DIRECTORY := %s
-LF_FILENAME := %s
+set(LF_FILENAME %s)
+string(TOLOWER ${LF_FILENAME} LF_FILENAME_LOWER)
 
-NAME = $(LF_FILENAME)
+cmake_minimum_required(VERSION 3.19)
 
-include $(FLEXPRET_ROOT_DIR)/hwconfig.mk
+include($ENV{FP_SDK_PATH}/cmake/riscv-toolchain.cmake)
+project(${LF_FILENAME} LANGUAGES C ASM)
 
-APP_INCS := -I$(LF_PROJECT_ROOT)/flexpret/programs/lib/include \
-    -I$(LF_SOURCE_GEN_DIRECTORY)/include/ \
-    -I$(LF_SOURCE_GEN_DIRECTORY)/include/api \
-    -I$(LF_SOURCE_GEN_DIRECTORY)/include/core \
-    -I$(LF_SOURCE_GEN_DIRECTORY)/include/core/modal_models \
-    -I$(LF_SOURCE_GEN_DIRECTORY)/include/core/utils \
-    -I$(LF_SOURCE_GEN_DIRECTORY)/include/core/platform \
-    -I$(LF_SOURCE_GEN_DIRECTORY)/include/core/threaded \
-	-I$(LF_SOURCE_GEN_DIRECTORY)/core/federated/RTI \
-	-I$(LF_SOURCE_GEN_DIRECTORY)/low_level_platform/api \
-	-I$(LF_SOURCE_GEN_DIRECTORY)/tag/api \
-	-I$(LF_SOURCE_GEN_DIRECTORY)/logging/api \
-	-I$(LF_SOURCE_GEN_DIRECTORY)/version/api \
-	-I$(LF_SOURCE_GEN_DIRECTORY)/platform/api \
-	-I$(LF_PROJECT_ROOT)/src
+set(CMAKE_SYSTEM_NAME "FLEXPRET")
 
-APP_DEFS := -DINITIAL_EVENT_QUEUE_SIZE=10 \
-	-DINITIAL_REACT_QUEUE_SIZE=10 \
-	-DNO_TTY \
-	-DPLATFORM_FLEXPRET \
-	-DLF_THREADED \
-	-DNUMBER_OF_WORKERS=%s
+if(CMAKE_BUILD_TYPE STREQUAL "Test")
+  set(CMAKE_BUILD_TYPE "Debug")
+  if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    find_program(LCOV_BIN lcov)
+    if(LCOV_BIN MATCHES "lcov$")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -fprofile-arcs -ftest-coverage")
+    else()
+      message("Not producing code coverage information since lcov was not found")
+    endif()
+  else()
+    message("Not producing code coverage information since the selected compiler is no gcc")
+  endif()
+endif()
+# Require C11
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
-GENERAL_SOURCES := \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/clock.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/environment.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/lf_token.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/mixed_radix.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/port.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/reactor_common.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/reactor.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/tag.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/tracepoint.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/$(NAME).c
+# Require C++17
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-UTIL_SOURCES := \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/hashset/hashset.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/hashset/hashset_itr.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/lf_semaphore.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/pqueue_base.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/pqueue_tag.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/pqueue.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/util.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/utils/vector.c
+set(DEFAULT_BUILD_TYPE Debug)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE ${DEFAULT_BUILD_TYPE} CACHE STRING "Choose the type of build." FORCE)
+endif()
 
-THREADED_SOURCES := \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/threaded/reactor_threaded.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/threaded/scheduler_adaptive.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/threaded/scheduler_GEDF_NP.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/threaded/scheduler_instance.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/threaded/scheduler_NP.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/threaded/scheduler_sync_tag_advance.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/threaded/watchdog.c \
+# do not print install messages
+set(CMAKE_INSTALL_MESSAGE NEVER)
+# Colorize compilation output
+set(CMAKE_COLOR_DIAGNOSTICS ON)
 
-MODAL_SOURCES := \
-		$(LF_SOURCE_GEN_DIRECTORY)/core/modal_models/modes.c
+# Set default values for build parameters
+if (NOT DEFINED SCHEDULER)
+    set(SCHEDULER SCHED_NP)
+endif()
+if (NOT DEFINED LF_REACTION_GRAPH_BREADTH)
+    set(LF_REACTION_GRAPH_BREADTH 4)
+endif()
+if (NOT DEFINED NUMBER_OF_WORKERS)
+    set(NUMBER_OF_WORKERS 3)
+endif()
+if (NOT DEFINED LOG_LEVEL)
+    set(LOG_LEVEL 2)
+endif()
+if (NOT DEFINED NUMBER_OF_WATCHDOGS)
+    set(NUMBER_OF_WATCHDOGS 0)
+endif()
+add_subdirectory(core)
 
-PLATFORM_SOURCES := \
-		$(LF_SOURCE_GEN_DIRECTORY)/low_level_platform/impl/src/lf_flexpret_support.c \
-		$(LF_SOURCE_GEN_DIRECTORY)/low_level_platform/impl/src/lf_atomic_irq.c
+set(LF_MAIN_TARGET ${LF_FILENAME})
 
-LIB_SOURCES := \
-		$(LF_SOURCE_GEN_DIRECTORY)/lib/schedule.c
+# Declare a new executable target and list all its sources
+add_executable(
+    ${LF_MAIN_TARGET}
+    lib/schedule.c
+    _${LF_FILENAME_LOWER}_main.c
+    _printhi.c
+    ${LF_FILENAME}.c
+)
 
-APP_SOURCES := \
-		$(GENERAL_SOURCES) \
-		$(UTIL_SOURCES) \
-		$(THREADED_SOURCES) \
-		$(MODAL_SOURCES) \
-		$(PLATFORM_SOURCES) \
-		$(LIB_SOURCES) \
-		$(wildcard $(LF_SOURCE_GEN_DIRECTORY)/*.c) # FIXME: Does not handle spaces.
+find_library(MATH_LIBRARY m)
+if(MATH_LIBRARY)
+  target_link_libraries(${LF_MAIN_TARGET} PUBLIC ${MATH_LIBRARY})
+endif()
+target_link_libraries(${LF_MAIN_TARGET} PUBLIC reactor-c)
+target_include_directories(${LF_MAIN_TARGET} PUBLIC .)
+target_include_directories(${LF_MAIN_TARGET} PUBLIC include/)
+target_include_directories(${LF_MAIN_TARGET} PUBLIC include/api)
+target_include_directories(${LF_MAIN_TARGET} PUBLIC include/core)
+target_include_directories(${LF_MAIN_TARGET} PUBLIC include/core/platform)
+target_include_directories(${LF_MAIN_TARGET} PUBLIC include/core/modal_models)
+target_include_directories(${LF_MAIN_TARGET} PUBLIC include/core/utils)
 
-include $(FLEXPRET_ROOT_DIR)/Makefrag
+# TODO: Could include hwconfig.cmake here
 
-' "$PROJECT_ROOT" "$LF_SOURCE_GEN_DIRECTORY" "$LF_FILENAME" '$(THREADS)-1' > "$LF_SOURCE_GEN_DIRECTORY/Makefile"
+# Set the number of workers to enable threading/tracing
+target_compile_definitions(${LF_MAIN_TARGET} PUBLIC 
+  NUMBER_OF_WORKERS=3 NO_TTY
+)
+	
+add_subdirectory($ENV{FP_SDK_PATH} BINARY_DIR)
 
-echo "Created $LF_SOURCE_GEN_DIRECTORY/Makefile"
+# FlexPRET specific changes
+# (Remember: Language ASM probably required)
+include($ENV{FP_SDK_PATH}/cmake/fp-app.cmake)
+
+set(CMAKE_EXECUTABLE_SUFFIX ".riscv")
+fp_add_dump_output(${LF_MAIN_TARGET})
+fp_add_mem_output(${LF_MAIN_TARGET})
+
+
+    install(
+        TARGETS ${LF_MAIN_TARGET}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+' "$LF_FILENAME" > "$LF_SOURCE_GEN_DIRECTORY/CMakeLists.txt"
+
+echo "Created $LF_SOURCE_GEN_DIRECTORY/CMakeLists.txt"
 
 cd "$LF_SOURCE_GEN_DIRECTORY"
-make
+cmake -B build && cmake --build build
 
 echo ""
 echo "**** To get simulation outputs:"

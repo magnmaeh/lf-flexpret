@@ -34,7 +34,7 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * We should only disable interrupts when this is zero and we enter a critical section
  * We should only  enable interrupts when we exit a critical section and this is zero
  */
-static int critical_section_num_nested[NUM_THREADS] = 
+static int critical_section_num_nested[FP_THREADS] = 
     THREAD_ARRAY_INITIALIZER(0);
 
 /**
@@ -66,7 +66,7 @@ int _lf_interruptable_sleep_until_locked(environment_t *env, instant_t wakeup_ti
     // Wait until will stop sleep if interrupt occurs
     fp_wait_until(wakeup_time);
 
-    if (rdtime64() < wakeup_time) {
+    if ((instant_t) rdtime64() < wakeup_time) {
         // Interrupt occurred because we did not wait full wakeup_time
         ret = -1;
     }
@@ -78,6 +78,7 @@ int _lf_interruptable_sleep_until_locked(environment_t *env, instant_t wakeup_ti
 int lf_sleep(interval_t sleep_duration) {
     // FIXME: Handle sleep durations exceeding 32bit
     fp_delay_for(sleep_duration);
+    return 0;
 }
 
 /**
@@ -96,7 +97,7 @@ int lf_disable_interrupts_nested() {
 
     fp_assert(critical_section_num_nested[hartid] >= 0, "Number of nested critical sections less than zero.");
     if (critical_section_num_nested[hartid]++ == 0) {
-        DISABLE_INTERRUPTS();
+        fp_interrupt_disable();
     }
     return 0;
 }
@@ -109,7 +110,7 @@ int lf_enable_interrupts_nested() {
     uint32_t hartid = read_hartid();
 
     if (--critical_section_num_nested[hartid] == 0) {
-        ENABLE_INTERRUPTS();
+        fp_interrupt_enable();
     }
     fp_assert(critical_section_num_nested[hartid] >= 0, "Number of nested critical sections less than zero.");
     return 0;
@@ -142,7 +143,7 @@ int _lf_single_threaded_notify_of_event() {
 #else // Multi threaded
 
 int lf_available_cores() {
-    return NUM_THREADS; // Return the number of Flexpret HW threads
+    return FP_THREADS; // Return the number of Flexpret HW threads
 }
 
 int lf_thread_create(lf_thread_t* thread, void *(*lf_thread) (void *), void* arguments) {
@@ -198,11 +199,3 @@ void initialize_lf_thread_id() {
     // TODO: Verify: Don't think anything is necessary here for FlexPRET
 }
 #endif
-
-/**
- * We are not using vfprintf nor svfprintf and these functions have huge
- * implementations. Doing this saves space. 
- * 
- */
-int _vfprintf_r(struct _reent *reent, FILE *fp, const char *fmt, va_list list) {}
-int _svfprintf_r(struct _reent *reent, FILE *fp, const char *fmt, va_list list) {}

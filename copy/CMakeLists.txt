@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.19)
 include($ENV{FP_SDK_PATH}/cmake/riscv-toolchain.cmake)
 project(Test LANGUAGES C ASM)
 
-set(CMAKE_SYSTEM_NAME "FlexPRET")
+set(CMAKE_SYSTEM_NAME "FLEXPRET")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Test")
   set(CMAKE_BUILD_TYPE "Debug")
@@ -62,7 +62,7 @@ find_library(MATH_LIBRARY m)
 if(MATH_LIBRARY)
   target_link_libraries(${LF_MAIN_TARGET} PUBLIC ${MATH_LIBRARY})
 endif()
-target_link_libraries(${LF_MAIN_TARGET} PUBLIC reactor-c core)
+target_link_libraries(${LF_MAIN_TARGET} PUBLIC reactor-c)
 target_include_directories(${LF_MAIN_TARGET} PUBLIC .)
 target_include_directories(${LF_MAIN_TARGET} PUBLIC include/)
 target_include_directories(${LF_MAIN_TARGET} PUBLIC include/api)
@@ -76,14 +76,16 @@ target_compile_definitions(${LF_MAIN_TARGET} PUBLIC
   LF_SINGLE_THREADED=1 NO_TTY
 )
 
+add_subdirectory($ENV{FP_SDK_PATH} BINARY_DIR)
+
 # FlexPRET specific changes
 # (Remember: Language ASM probably required)
 include($ENV{FP_SDK_PATH}/cmake/fp-app.cmake)
-target_link_libraries(${LF_MAIN_TARGET} PUBLIC 
-  printf fp-sdk-if
-)
 
-add_subdirectory($ENV{FP_SDK_PATH} BINARY_DIR)
+set(CMAKE_EXECUTABLE_SUFFIX ".riscv")
+fp_add_dump_output(${LF_MAIN_TARGET})
+fp_add_mem_output(${LF_MAIN_TARGET})
+
 
     install(
         TARGETS ${LF_MAIN_TARGET}

@@ -1,12 +1,11 @@
 target C {
     keepalive: true, // Do not exit when event queue is empty.
     single-threaded: true,
-    logging: error,
     build: "../../scripts/build_flexpret_unix_unthreaded.sh"
 }
 
 preamble {=
-    #include "platform.h"
+    #include <platform.h>
 
     #define MAX_INTERRUPTS 10
     #define TIMESTAMP_SIZE (2 * MAX_INTERRUPTS)

@@ -4,7 +4,7 @@ target C {
 };
 
 preamble {=
-    #include <flexpret.h>
+    #include <platform.h>
 =}
 
 main reactor {

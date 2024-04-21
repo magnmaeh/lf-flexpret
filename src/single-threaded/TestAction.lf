@@ -7,7 +7,7 @@ target C {
 
 preamble {=
     #include <stdint.h>
-    #include <flexpret.h>
+    #include <platform.h>
 =}
 
 main reactor {

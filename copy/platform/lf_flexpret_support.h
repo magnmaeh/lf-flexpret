@@ -43,9 +43,8 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdarg.h>     // Defines va_list
 #include <stdio.h>      // Defines FILE
 #include <string.h>     // Defines strlen
-#include "../utils/util.h"
 
-#include <flexpret.h>
+#include <flexpret/flexpret.h>
 
 
 /**

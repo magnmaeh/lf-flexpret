@@ -41,7 +41,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Rp2040")
         ${CMAKE_CURRENT_LIST_DIR}/src/lf_rp2040_support.c
         ${CMAKE_CURRENT_LIST_DIR}/src/lf_atomic_irq.c
     )
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "FlexPRET")
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "FLEXPRET")
     set(LF_LOW_LEVEL_PLATFORM_FILES
         ${CMAKE_CURRENT_LIST_DIR}/src/lf_flexpret_support.c
         ${CMAKE_CURRENT_LIST_DIR}/src/lf_atomic_irq.c
@@ -63,11 +63,13 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Zephyr")
     zephyr_library_link_libraries(kernel)
 else()
     add_library(lf-low-level-platform-impl STATIC ${LF_LOW_LEVEL_PLATFORM_FILES})
+    
     # Link the platform to a threading library
-    if(NOT DEFINED LF_SINGLE_THREADED OR DEFINED LF_TRACE)
-        find_package(Threads REQUIRED)
-        target_link_libraries(lf-low-level-platform-impl PRIVATE Threads::Threads)
-    endif()
+    #if(NOT DEFINED LF_SINGLE_THREADED OR DEFINED LF_TRACE)
+    #    find_package(Threads REQUIRED)
+    #    target_link_libraries(lf-low-level-platform-impl)
+    #else()
+    #endif()
 endif()
 
 add_library(lf::low-level-platform-impl ALIAS lf-low-level-platform-impl)
