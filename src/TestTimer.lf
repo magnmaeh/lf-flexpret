@@ -1,12 +1,12 @@
 target C {
-    threading: false,
-    build: "../scripts/build_flexpret_unix.sh",
+    single-threaded: true,
+    platform: "FlexPRET",
     timeout: 100 ms
 };
 
 preamble {=
     #include <stdint.h>
-    #include <flexpret_io.h>
+    #include <flexpret/io.h>
     #include <printf/printf.h>
 =}
 
@@ -17,10 +17,6 @@ main reactor {
         printf("Hello world from TestTimer.lf!\n");
         self->count += 1;
         printf("self->count: %i at time: %i\n", self->count, lf_time_logical());
-
-        // FIXME: The second one does not work
-        //printf("self->count: %i\n", self->count);
-        //printf("lf_time_logical: %i\n", lf_time_logical());
         if (self->count >= 10) lf_request_stop();
     =}
 }

@@ -1,11 +1,10 @@
 target C {
-    threading: false,
-    logging: debug,
-    build: "../scripts/build_flexpret_unix.sh"
+    single-threaded: true,
+    platform: "FlexPRET"
 };
 
 preamble {=
-    #include <flexpret_io.h>
+    #include <flexpret/io.h>
 =}
 
 main reactor {

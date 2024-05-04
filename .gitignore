@@ -1,1 +1,5 @@
 src-gen/
+include
+bin
+.metals
+.vscode

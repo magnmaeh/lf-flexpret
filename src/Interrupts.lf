@@ -1,12 +1,14 @@
 target C {
     keepalive: true, // Do not exit when event queue is empty.
-    threading: true,
-    logging: error,
-    build: "../scripts/build_flexpret_unix.sh"
+    single-threaded: true,
+    platform: {
+        name: "FlexPRET",
+        board: "fpga"
+    }
 }
 preamble {=
-    #include "platform.h"
-    #include "flexpret.h"
+    #include <platform.h>
+    #include <flexpret/flexpret.h>
 
     #define MAX_INTERRUPTS (1000)
     #define TIMESTAMP_SIZE (2 * MAX_INTERRUPTS)
@@ -29,7 +31,8 @@ main reactor {
         action = a;
         register_isr(EXC_CAUSE_EXTERNAL_INT, ie_isr);
         timestamps = malloc(TIMESTAMP_SIZE * sizeof(instant_t) + 1000);
-        ENABLE_INTERRUPTS();
+        fp_interrupt_enable();
+        printf("Init\n");
     =}
 
     reaction(a) {=
