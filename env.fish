@@ -1,1 +1,1 @@
-set FLEXPRET_ROOT_DIR (pwd)/flexpret
+source flexpret/env.fish

@@ -2,3 +2,7 @@ src-gen/
 include/
 results/*/*.txt
 src/config.h
+bin/
+lib/
+.metals
+.vscode
