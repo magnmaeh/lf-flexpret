@@ -1,0 +1,31 @@
+/**
+ * Simple Hello world to run on FPGA.
+ * Setting the `flash` option to true will automatically attempt to flash the
+ * compiled program to the FPGA.
+ *
+ * TODO: Test on FPGA
+ */
+
+target C {
+    platform: {
+        name: "FlexPRET",
+        board: "fpga",
+        port: "/dev/ttyUSB0",
+        flash: true
+        // Not allowed to set baudrate for FlexPRET platform specifically
+    },
+    timeout: 10 s
+}
+
+main reactor {
+    timer t(10 ms, 500 ms)
+
+    reaction(t) {=
+        // fp_print_string is a very low footprint function, as opposed to printf
+        fp_print_string("Hello world\n");
+    =}
+
+    reaction(shutdown) {=
+        fp_print_string("Terminating\n");
+    =}
+}

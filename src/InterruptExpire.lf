@@ -1,0 +1,70 @@
+/**
+ * Here we showcase the `interrupt on expire` feature on FlexPRET. It allows us
+ * to schedule an interrupt at some absolute time ahead of time. Paired with
+ * some `setjmp/longjmp`, we can cancel code that takes too long to execute.
+ * This provides a *hard* upper bound on execution times for code sections.
+ */
+
+target C {
+    platform: "FlexPRET",
+    timeout: 1 s
+}
+
+main reactor {
+    timer t(10 ms, 10 ms)
+
+    preamble {=
+        void compute_fibs(uint64_t *arr, uint32_t n) {
+            arr[0] = 0;
+            arr[1] = 1;
+
+            for (uint32_t i = 2; i < n; i++) {
+                arr[i] = arr[i-1] + arr[i-2];
+            }
+        }
+
+        void interrupt_handler(void) {
+            // Here we can implment an interrupt handler or just leave empty
+            lf_print("Hello world from interrupt handler");
+        }
+    =}
+
+    reaction(startup) {=
+        register_isr(EXC_CAUSE_INTERRUPT_EXPIRE, interrupt_handler);
+        fp_interrupt_enable();
+    =}
+
+    reaction(t) {=
+        instant_t start = lf_time_physical_elapsed();
+
+        bool within_deadline = false;
+        fp_int_on_expire(start + USEC(500), cleanup);
+        /**
+         * This code section is guarateed to take 500 us at maximum.
+         */
+        
+        // We introduce some randomness by doing modulo here
+        uint32_t nelements = start % 800;
+        lf_print("Computing fib for %li elements", nelements);
+        
+        uint64_t *array = malloc(sizeof(uint64_t) * nelements);
+        compute_fibs(array, nelements);
+
+        fp_int_on_expire_cancel();
+        within_deadline = true;
+
+cleanup:
+        instant_t after = lf_time_physical_elapsed();
+        
+        if (within_deadline) {
+            lf_print("Ran code within deadline");
+        } else {
+            lf_print("Code was interrupted due to deadline violation");
+        }
+
+        free(array);
+        lf_print("Code section ran in %li ns",
+            (uint32_t) (after - start));
+    =}
+}
+

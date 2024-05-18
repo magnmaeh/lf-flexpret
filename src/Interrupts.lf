@@ -1,53 +1,45 @@
+/**
+ * Run this program with `--client` option, like so:
+ *
+ * `./bin/Interrupts --client`
+ *
+ * Then connect a client that can set the external pins on the emulated FlexPRET.
+ * Like so:
+ *
+ * `$FP_PATH/build/emulator/clients/interrupter`
+ *
+ * Then press <ENTER> to see interrupts get triggered.
+ */
+
 target C {
     keepalive: true, // Do not exit when event queue is empty.
-    single-threaded: true,
-    platform: {
-        name: "FlexPRET",
-        board: "fpga"
-    }
+    platform: "FlexPRET",
+    single-threaded: true
 }
-preamble {=
-    #include <platform.h>
-    #include <flexpret/flexpret.h>
-
-    #define MAX_INTERRUPTS (1000)
-    #define TIMESTAMP_SIZE (2 * MAX_INTERRUPTS)
-=}
 
 main reactor {
-    physical action a: int
+    physical action a(0, 250 us, "drop"): int
     
     preamble {=
-        static instant_t *timestamps;
+        static instant_t timestamps[2];
         void *action;
         void ie_isr(void) {
-            static int ntimes = 0;
-            timestamps[2 * ntimes++ + 0] = lf_time_physical_elapsed();
+            timestamps[0] = lf_time_physical_elapsed();
             lf_schedule(action, 0);
         }
     =}
 
     reaction(startup) -> a {=
+        lf_print("Run: $FP_PATH/build/emulator/clients/interrupter to trigger interrupts");
+        lf_print("And remember the `--client` flag when running this program");
         action = a;
         register_isr(EXC_CAUSE_EXTERNAL_INT, ie_isr);
-        timestamps = malloc(TIMESTAMP_SIZE * sizeof(instant_t) + 1000);
         fp_interrupt_enable();
-        printf("Init\n");
     =}
 
     reaction(a) {=
-        static int ntimes = 0;
-        timestamps[2 * ntimes++ + 1] = lf_time_physical_elapsed();
-        if (ntimes >= MAX_INTERRUPTS) {
-            lf_request_stop();
-        }
-    =}
-
-    reaction(shutdown) {=
-        for (int i = 0; i < MAX_INTERRUPTS; i++) {
-            printf("Iteration %i: Interrupt: %lli, {0}: %lli,\n",
-                i, timestamps[2 * i + 0], timestamps[2 * i + 1]);
-        }
-        free(timestamps);
+        timestamps[1] = lf_time_physical_elapsed();
+        lf_print("Interrupt delay: %i", 
+            (uint32_t) (timestamps[1] - timestamps[0]));
     =}
 }

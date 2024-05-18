@@ -1,0 +1,22 @@
+target C {
+    platform: "FlexPRET",
+    timeout: 100 ms
+};
+
+reactor PrintHello {
+    timer t(0, 10 ms)
+
+    reaction(t) {=
+        uint32_t hartid = read_hartid();
+        lf_print("Hello world from tid: %li at logical time: %li", 
+            hartid, (uint32_t) lf_time_logical());
+    =}
+}
+
+main reactor {
+    printers = new[3] PrintHello()
+
+    reaction(shutdown) {=
+        lf_print("Goodbye");
+    =}
+}

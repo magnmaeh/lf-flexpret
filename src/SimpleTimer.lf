@@ -1,0 +1,22 @@
+/**
+ * Test a simple timer.
+ */
+
+target C {
+    platform: "FlexPRET",
+    //logging: debug,
+    single-threaded: true
+};
+
+main reactor {
+    timer t(0, 10 ms);
+    state count: int
+    reaction(t) {=
+        self->count += 1;
+        lf_print("self->count: %i at time: %i", self->count, (int) lf_time_logical());
+        
+        if (self->count >= 10) {
+            lf_request_stop();
+        }
+    =}
+}

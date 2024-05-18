@@ -1,0 +1,13 @@
+target C {
+    platform: "FlexPRET",
+};
+
+main reactor {
+    reaction(startup) {=
+        lf_print("Hello world from FlexPRET");
+    =}
+
+    reaction(shutdown) {=
+        lf_print("Goodbye");
+    =}
+}

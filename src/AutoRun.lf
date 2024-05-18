@@ -1,0 +1,23 @@
+/**
+ * Highlight the `flash` feature, i.e. automatically run/flash programs after they
+ * have been compiled
+ */
+
+target C {
+    platform: {
+        name: "FlexPRET",
+        
+        /**
+         * Since `board` is not specified, the default board will be `emulator`.
+         * On emulator, `flash` means run automatically.
+         * On FPGA, `flash` means transfer the program to FPGA and run it there.
+         */
+        flash: true
+    }
+}
+
+main reactor {
+    reaction(startup) {=
+        lf_print("Hello world from FlexPRET - this time run automatically!");
+    =}
+}

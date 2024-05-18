@@ -1,5 +1,6 @@
 src-gen/
 include
 bin
+target
 .metals
 .vscode

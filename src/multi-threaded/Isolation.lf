@@ -1,0 +1,57 @@
+/**
+ * Showcase FlexPRET's temporal isolation of hardware threads; i.e., that the
+ * timing of one thread does not affect the timing of another.
+ *
+ * Notice in the output that the interrupter thread gets interrupted and runs
+ * the interrupt handler while the LF reaction triggers. The timing of the LF
+ * reaction is unaffected by whether or not the interrupter thread is waiting 
+ * or handling the interrupt.
+ */
+
+target C {
+    platform: "FlexPRET"
+}
+
+preamble {=
+    #include <flexpret/flexpret.h>
+=}
+
+main reactor {
+    preamble {=
+        void isr(void) {
+            printf("Got int\n");
+            
+            // Simulate some heavy computation
+            // volatile ensures it does not get optimized out
+            for (volatile int i = 0; i < 100000; i++);
+            printf("Finished int handling\n");
+        }
+
+        void *interrupter(void *args) {
+            (void) args;
+
+            register_isr(EXC_CAUSE_INTERRUPT_EXPIRE, isr);
+            fp_interrupt_enable();
+
+            while (1) {
+                fp_int_on_expire(rdtime() + MSEC(20), unused);
+unused:
+                fp_wait_for(MSEC(20));
+            }
+        }
+    =}
+
+    timer t(0, 50 ms)
+
+    reaction(startup) {=
+        // Create a thread outside the context of LF that schedules interrupts
+        // and handles it
+        fp_thread_t int_tid;
+        fp_thread_create(HRTT, &int_tid, interrupter, NULL);
+    =}
+
+    reaction(t) {=
+        lf_print("Timer triggered at time: %li",
+            (uint32_t) lf_time_physical_elapsed());
+    =}
+}
